@@ -1,0 +1,6 @@
+telethon
+motor
+pymongo
+pytz
+flask
+dnspython
