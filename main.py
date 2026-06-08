@@ -70,60 +70,126 @@ active_group_spawns = {}
 # ==========================================
 # 📥 1. DATABASE RECRUITER (/addchar)
 # ==========================================
-@bot1.on(events.NewMessage(pattern=r'^/addchar\s+(.*)$'))
-async def add_character_handler(event):
-    chat_id = event.chat_id
-    user_id = event.sender_id
-    
-    if chat_id != SPECIFIC_CONTROL_GROUP: return 
-    if user_id != OWNER_ID: return
-        
-    if not event.is_reply:
-        return await event.reply("⚠️ <b>Matrix Error:</b> Please reply to a photo or video to use this command, Chief!")
-        
-    reply_msg = await event.get_reply_message()
-    if not reply_msg.photo and not reply_msg.video and not reply_msg.document:
-        return await event.reply("❌ <b>Media Missing:</b> Unsupported format. Only photos and video clips are allowed.")
-        
-    try:
-        input_text = event.pattern_match.group(1)
-        parts = [p.strip() for p in input_text.split('|')]
-        
-        if len(parts) < 3:
-            return await event.reply("❌ <b>Invalid Format:</b> Use <code>/addchar Name | Rarity | Value</code>", parse_mode='html')
-            
-        char_name = parts[0]
-        rarity = parts[1].upper()
-        currency_value = int(parts[2])
-        
-        storage_msg_id = reply_msg.id
-        char_id = random.randint(10000, 99999)
-        media_type = "🎬 VIDEO" if reply_msg.video or (reply_msg.document and reply_msg.document.mime_type.startswith('video/')) else "🖼️ PHOTO"
-        
-        await characters_base_col.insert_one({
-            "char_id": char_id,
-            "name": char_name,
-            "storage_msg_id": storage_msg_id,
-            "rarity": rarity,
-            "currency_value": currency_value,
-            "media_type": media_type
-        })
-        
-        success_msg = (
-            f"🛡️ <b>STAR DATABASE SYNCHRONIZED</b>\n"
-            f"────────────────────────\n"
-            f"🆔 <b>Star ID:</b> <code>{char_id}</code>\n"
-            f"🎬 <b>Identity:</b> <code>{escape_html(char_name)}</code>\n"
-            f"👑 <b>Tier:</b> <code>[{rarity}]</code>\n"
-            f"💰 <b>Value:</b> <code>{currency_value} PTS</code>\n"
-            f"🎞️ <b>Format:</b> <code>{media_type}</code>\n"
-            f"────────────────────────"
+
+
+@bot1.on(events.NewMessage(pattern=r'^/addchar(?:\s+(.+))?'))
+async def add_character(event):
+    # 1. Admin ဟုတ်မဟုတ် အရင်စစ်ဆေးခြင်း
+    if event.sender_id != ADMIN_ID:
+        return  # Admin မဟုတ်ရင် Silent ignore လုပ်မယ်
+
+    # 2. Argument ပါမပါ စစ်ဆေးခြင်း
+    input_text = event.pattern_match.group(1)
+    if not input_text:
+        await event.reply(
+            "❌ **အသုံးပြုပုံ ပုံစံမှားနေပါတယ် Chief!**\n\n"
+            "**Format:** `/addchar Name | Anime | Rarity | Image_URL`\n"
+            "**Reply ပုံစံ:** ပုံကို Reply ပြန်ပြီး `/addchar Name | Anime | Rarity` ဟုရိုက်ပါ။"
         )
-        await event.reply(success_msg, parse_mode='html')
+        return
+
+    # စာသားများကို | နိမိတ်နဲ့ ခွဲထုတ်ခြင်း
+    parts = [p.strip() for p in input_text.split('|')]
+    
+    if len(parts) < 3:
+        await event.reply("❌ **သတင်းအချက်အလက် မစုံလင်ပါ!**\nလိုအပ်ချက်: `Name | Anime | Rarity` အနည်းဆုံး ပါရမည်။")
+        return
+
+    char_name = parts[0]
+    anime_name = parts[1]
+    rarity = parts[2]
+    
+    # Default တန်ဖိုး သတ်မှတ်ချက်
+    img_url = parts[3] if len(parts) > 3 else None
+
+    # 3. အကယ်၍ ပုံကို Reply ပြန်ပြီး သိမ်းတာဆိုရင် Telegram File ID ကို ဆွဲယူခြင်း
+    if event.is_reply:
+        reply_msg = await event.get_reply_message()
+        if reply_msg and reply_msg.photo:
+            # Telethon ရဲ့ လျှို့ဝှက်ချက် - Photo ရဲ့ အကြီးဆုံး Size ရဲ့ File ID ကို ယူမယ်
+            img_url = reply_msg.photo
+
+    if not img_url:
+        await event.reply("❌ **ဓာတ်ပုံ ရှာမတွေ့ပါ!**\nImage URL ထည့်ပါ သို့မဟုတ် ပုံကို Reply ပြန်ပြီး Command ရိုက်ပါ။")
+        return
+
+    # 4. Database ထဲကို လှမ်းထည့်မည့် Character Document Object
+    character_data = {
+        "name": char_name,
+        "anime": anime_name,
+        "rarity": rarity,
+        "image": img_url,  # Telethon Media Object သို့မဟုတ် URL စာသား သိမ်းမည်
+        "visits": 0        # Catch တဲ့အကြိမ်ရေ ခြေရာခံဖို့
+    }
+
+    try:
+        # မင်းရဲ့ MongoDB Collection နာမည် (ဥပမာ - characters) ထဲကို ထည့်ခြင်း
+        # 'db' ဆိုတာ မင်းဆောက်ထားတဲ့ Motor Database Variable ဖြစ်ရပါမယ်
+        await db.characters.insert_one(character_data)
+        
+        # အောင်မြင်ကြောင်း စာပြန်ခြင်း
+        success_msg = (
+            "✅ **Sovereign Database Updated, Chief!**\n\n"
+            f"👤 **Name:** {char_name}\n"
+            f"🎬 **Anime:** {anime_name}\n"
+            f"🌟 **Rarity:** {rarity}\n\n"
+            "Matrix ထဲကို စနစ်တကျ ထည့်သွင်းပြီးပါပြီ။"
+        )
+        await event.reply(success_msg)
+
+    except Exception as e:
+        await event.reply(f"❌ **Database Error:** `{str(e)}`")
+
+@bot1.on(events.NewMessage(pattern=r'^/[Hh]aii$'))
+async def force_spawn_by_owner(event):
+    # 1. ရိုက်တဲ့သူက Owner ဟုတ်မဟုတ် အရင်စစ်မယ် (Owner မဟုတ်ရင် ဘာမှပြန်မလုပ်ဘူး)
+    if event.sender_id != OWNER_ID:
+        return
+
+    chat_id = event.chat_id
+
+    # 2. စာ ၁၀၀ မပြည့်သေးရင်လည်း အတင်းအကျပ် ပေါ်လာစေဖို့ Counter ကို အော်တို Max တင်ပေးလိုက်ခြင်း
+    # 💡 အကယ်၍ မင်းက MongoDB သုံးပြီး Group ရဲ့ message_count ကို သိမ်းထားတာဆိုရင်:
+    try:
+        await db.groups.update_one(
+            {"chat_id": chat_id}, 
+            {"$set": {"message_count": 100}}, # စာ ၁၀၀ ပြည့်သွားပြီလို့ Matrix ထဲ သတ်မှတ်လိုက်တယ်
+            upsert=True
+        )
+    except Exception:
+        pass # Database မချိတ်ရသေးရင် သို့မဟုတ် အခြားစနစ်သုံးထားရင် Skip လုပ်မယ်
+
+    # 💡 အကယ်၍ မင်းက Local Dictionary သုံးထားရင် အောက်ပါအတိုင်း ပြောင်းရေးနိုင်ပါတယ်:
+    # msg_counters[chat_id] = 100
+
+    # 3. Character Drop ချမည့် Logic ကို တိုက်ရိုက် Run ခြင်း
+    await event.reply("🛰️ **Sovereign Override: Force Spawning Matrix Activated...**")
+    
+    # --------------------------------------------------------
+    # 👇 ဒီအောက်မှာ မင်းရဲ့ ပုံမှန် Character Spawn တဲ့ ကုဒ်လုပ်ကွက်ကို ထည့်ပေးရပါမယ် Chief
+    # --------------------------------------------------------
+    try:
+        # DB ထဲက Character တွေကို Random တစ်ခု ဆွဲထုတ်ခြင်း
+        all_chars = await db.characters.find().to_list(length=100)
+        
+        if not all_chars:
+            await event.respond("❌ Database ထဲမှာ Character မရှိသေးပါဘူး Chief!")
+            return
+            
+        chosen_char = random.choice(all_chars)
+        
+        # Group ထဲကို Character Spawn တဲ့ စာသားနဲ့ ပုံ ပို့ပေးခြင်း
+        caption = (
+            "🌟 **A CHARACTER HAS SPAWNED IN THE CHAT!** 🌟\n\n"
+            "ADD THIS CHARACTER TO YOUR HAREM USING\n"
+            f"`/catch {chosen_char['name']}`"
+        )
+        
+        # ပုံပို့မည့်အပိုင်း
+        await bot1.send_file(chat_id, chosen_char['image'], caption=caption)
         
     except Exception as e:
-        await event.reply(f"❌ System Crash: {e}")
-
+        await event.respond(f"❌ **Spawn Error:** `{str(e)}`")
 # ==========================================
 # 📢 2. EQUAL CHANCE AUTOMATIC SPAWN ENGINE
 # ==========================================
