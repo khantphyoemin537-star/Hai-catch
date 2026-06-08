@@ -70,128 +70,139 @@ active_group_spawns = {}
 # ==========================================
 # 📥 1. DATABASE RECRUITER (/addchar)
 # ==========================================
-
-
 @bot1.on(events.NewMessage(pattern=r'^/addchar(?:\s+(.+))?'))
 async def add_character(event):
-    # 1. Admin ဟုတ်မဟုတ် အရင်စစ်ဆေးခြင်း
-    if event.sender_id != ADMIN_ID:
-        return  # Admin မဟုတ်ရင် Silent ignore လုပ်မယ်
+    if event.sender_id != OWNER_ID:
+        return  # Owner သီးသန့် အလုပ်လုပ်မည်
 
-    # 2. Argument ပါမပါ စစ်ဆေးခြင်း
     input_text = event.pattern_match.group(1)
     if not input_text:
         await event.reply(
             "❌ **အသုံးပြုပုံ ပုံစံမှားနေပါတယ် Chief!**\n\n"
-            "**Format:** `/addchar Name | Anime | Rarity | Image_URL`\n"
-            "**Reply ပုံစံ:** ပုံကို Reply ပြန်ပြီး `/addchar Name | Anime | Rarity` ဟုရိုက်ပါ။"
+            "**Format:** `/addchar Name | Anime | Rarity` (ဓာတ်ပုံကို Reply ပြန်၍ ရိုက်ပါ)"
         )
         return
 
-    # စာသားများကို | နိမိတ်နဲ့ ခွဲထုတ်ခြင်း
     parts = [p.strip() for p in input_text.split('|')]
-    
     if len(parts) < 3:
-        await event.reply("❌ **သတင်းအချက်အလက် မစုံလင်ပါ!**\nလိုအပ်ချက်: `Name | Anime | Rarity` အနည်းဆုံး ပါရမည်။")
+        await event.reply("❌ **သတင်းအချက်အလက် မစုံလင်ပါ!**\nလိုအပ်ချက်: `Name | Anime | Rarity` ပါရမည်။")
         return
 
     char_name = parts[0]
     anime_name = parts[1]
     rarity = parts[2]
-    
-    # Default တန်ဖိုး သတ်မှတ်ချက်
-    img_url = parts[3] if len(parts) > 3 else None
 
-    # 3. အကယ်၍ ပုံကို Reply ပြန်ပြီး သိမ်းတာဆိုရင် Telegram File ID ကို ဆွဲယူခြင်း
-    if event.is_reply:
-        reply_msg = await event.get_reply_message()
-        if reply_msg and reply_msg.photo:
-            # Telethon ရဲ့ လျှို့ဝှက်ချက် - Photo ရဲ့ အကြီးဆုံး Size ရဲ့ File ID ကို ယူမယ်
-            img_url = reply_msg.photo
-
-    if not img_url:
-        await event.reply("❌ **ဓာတ်ပုံ ရှာမတွေ့ပါ!**\nImage URL ထည့်ပါ သို့မဟုတ် ပုံကို Reply ပြန်ပြီး Command ရိုက်ပါ။")
+    if not event.is_reply:
+        await event.reply("❌ **ဓာတ်ပုံကို Reply ပြန်ပြီး Command ရိုက်ပေးပါ Chief!**")
         return
 
-    # 4. Database ထဲကို လှမ်းထည့်မည့် Character Document Object
-    character_data = {
-        "name": char_name,
-        "anime": anime_name,
-        "rarity": rarity,
-        "image": img_url,  # Telethon Media Object သို့မဟုတ် URL စာသား သိမ်းမည်
-        "visits": 0        # Catch တဲ့အကြိမ်ရေ ခြေရာခံဖို့
-    }
+    reply_msg = await event.get_reply_message()
+    if not reply_msg or not reply_msg.photo:
+        await event.reply("❌ **Reply ပြန်ထားသော စာတွင် ဓာတ်ပုံမတွေ့ပါ။**")
+        return
 
     try:
-        # မင်းရဲ့ MongoDB Collection နာမည် (ဥပမာ - characters) ထဲကို ထည့်ခြင်း
-        # 'db' ဆိုတာ မင်းဆောက်ထားတဲ့ Motor Database Variable ဖြစ်ရပါမယ်
-        await db.characters.insert_one(character_data)
+        # ပုံကို Storage Group ထဲကို အရင်တင်ပြီး Message ID ဆွဲယူခြင်း
+        forwarded_msg = await bot1.send_message(SPECIFIC_CONTROL_GROUP, file=reply_msg.photo)
+        storage_id = forwarded_msg.id
+
+        # Rarity အလိုက် PTS တန်ဖိုးများကို Dynamic တွက်ချက်ခြင်း
+        rarity_lower = rarity.lower()
+        if "legend" in rarity_lower: val = 500
+        elif "limit" in rarity_lower: val = 450
+        elif "mythic" in rarity_lower: val = 400
+        elif "epic" in rarity_lower: val = 300
+        elif "rare" in rarity_lower: val = 200
+        else: val = 100
+
+        char_id = str(random.randint(100000, 999999))
+
+        character_data = {
+            "char_id": char_id,
+            "name": char_name,
+            "anime": anime_name,
+            "rarity": rarity,
+            "storage_msg_id": storage_id,
+            "currency_value": val,
+            "visits": 0
+        }
+
+        # Main Database Collection ထဲသို့ တိုက်ရိုက်သိမ်းဆည်းခြင်း
+        await characters_base_col.insert_one(character_data)
         
-        # အောင်မြင်ကြောင်း စာပြန်ခြင်း
         success_msg = (
             "✅ **Sovereign Database Updated, Chief!**\n\n"
-            f"👤 **Name:** {char_name}\n"
-            f"🎬 **Anime:** {anime_name}\n"
-            f"🌟 **Rarity:** {rarity}\n\n"
+            f"🆔 **Char ID:** <code>{char_id}</code>\n"
+            f"👤 **Name:** <code>{char_name}</code>\n"
+            f"🎬 **Anime:** <code>{anime_name}</code>\n"
+            f"🌟 **Rarity:** <code>[{rarity}]</code>\n"
+            f"💎 **Asset Value:** <code>{val} PTS</code>\n"
+            f"📦 **Storage ID:** <code>{storage_id}</code>\n\n"
             "Matrix ထဲကို စနစ်တကျ ထည့်သွင်းပြီးပါပြီ။"
         )
-        await event.reply(success_msg)
+        await event.reply(success_msg, parse_mode='html')
 
     except Exception as e:
         await event.reply(f"❌ **Database Error:** `{str(e)}`")
 
+# ==========================================
+# 🛰️ 2. FORCE SPAWN BY OWNER (/Haii)
+# ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/[Hh]aii$'))
 async def force_spawn_by_owner(event):
-    # 1. ရိုက်တဲ့သူက Owner ဟုတ်မဟုတ် အရင်စစ်မယ် (Owner မဟုတ်ရင် ဘာမှပြန်မလုပ်ဘူး)
-    if event.sender_id != OWNER_ID:
-        return
-
+    if event.sender_id != OWNER_ID: return
     chat_id = event.chat_id
 
-    # 2. စာ ၁၀၀ မပြည့်သေးရင်လည်း အတင်းအကျပ် ပေါ်လာစေဖို့ Counter ကို အော်တို Max တင်ပေးလိုက်ခြင်း
-    # 💡 အကယ်၍ မင်းက MongoDB သုံးပြီး Group ရဲ့ message_count ကို သိမ်းထားတာဆိုရင်:
     try:
-        await db.groups.update_one(
-            {"chat_id": chat_id}, 
-            {"$set": {"message_count": 100}}, # စာ ၁၀၀ ပြည့်သွားပြီလို့ Matrix ထဲ သတ်မှတ်လိုက်တယ်
-            upsert=True
+        await groups_counters_col.update_one(
+            {"chat_id": chat_id}, {"$set": {"counter": 100}}, upsert=True
         )
-    except Exception:
-        pass # Database မချိတ်ရသေးရင် သို့မဟုတ် အခြားစနစ်သုံးထားရင် Skip လုပ်မယ်
+    except: pass
 
-    # 💡 အကယ်၍ မင်းက Local Dictionary သုံးထားရင် အောက်ပါအတိုင်း ပြောင်းရေးနိုင်ပါတယ်:
-    # msg_counters[chat_id] = 100
-
-    # 3. Character Drop ချမည့် Logic ကို တိုက်ရိုက် Run ခြင်း
     await event.reply("🛰️ **Sovereign Override: Force Spawning Matrix Activated...**")
     
-    # --------------------------------------------------------
-    # 👇 ဒီအောက်မှာ မင်းရဲ့ ပုံမှန် Character Spawn တဲ့ ကုဒ်လုပ်ကွက်ကို ထည့်ပေးရပါမယ် Chief
-    # --------------------------------------------------------
     try:
-        # DB ထဲက Character တွေကို Random တစ်ခု ဆွဲထုတ်ခြင်း
-        all_chars = await db.characters.find().to_list(length=100)
-        
-        if not all_chars:
+        characters_list = await characters_base_col.find().to_list(length=None)
+        if not characters_list:
             await event.respond("❌ Database ထဲမှာ Character မရှိသေးပါဘူး Chief!")
             return
             
-        chosen_char = random.choice(all_chars)
+        chosen_char = random.choice(characters_list)
+        storage_msg = await bot1.get_messages(SPECIFIC_CONTROL_GROUP, ids=chosen_char["storage_msg_id"])
         
-        # Group ထဲကို Character Spawn တဲ့ စာသားနဲ့ ပုံ ပို့ပေးခြင်း
-        caption = (
-            "🌟 **A CHARACTER HAS SPAWNED IN THE CHAT!** 🌟\n\n"
-            "ADD THIS CHARACTER TO YOUR HAREM USING\n"
-            f"`/catch {chosen_char['name']}`"
+        if not storage_msg or not storage_msg.media:
+            await event.respond("❌ Storage Group ထဲမှ သက်ဆိုင်ရာ Media ကို ဆွဲထုတ်၍မရပါ။")
+            return
+            
+        active_group_spawns[chat_id] = {
+            "char_id": chosen_char["char_id"],
+            "name": chosen_char["name"],
+            "value": chosen_char["currency_value"],
+            "rarity": chosen_char["rarity"],
+            "spawn_time": time.time(),
+            "claimed": False
+        }
+        
+        spawn_text = (
+            f"🎬 <b>CINEMATIC ICON SPOTTED!</b>\n"
+            f"────────────────────────\n"
+            f"A legendary star has arrived on the stage!\n"
+            f"Claim them before they disappear into the shadows.\n\n"
+            f"👉 <code>/catch {escape_html(chosen_char['name'])}</code>\n"
+            f"────────────────────────\n"
+            f"👑 <b>Rarity Tier:</b> <code>[{chosen_char['rarity']}]</code>\n"
+            f"⏳ <b>Time Window:</b> <code>60 Seconds</code>\n"
+            f"────────────────────────"
         )
         
-        # ပုံပို့မည့်အပိုင်း
-        await bot1.send_file(chat_id, chosen_char['image'], caption=caption)
+        await bot1.send_message(chat_id, spawn_text, parse_mode='html', file=storage_msg.media)
+        await groups_counters_col.update_one({"chat_id": chat_id}, {"$set": {"counter": 0}})
         
     except Exception as e:
         await event.respond(f"❌ **Spawn Error:** `{str(e)}`")
+
 # ==========================================
-# 📢 2. EQUAL CHANCE AUTOMATIC SPAWN ENGINE
+# 📢 3. EQUAL CHANCE AUTOMATIC SPAWN ENGINE
 # ==========================================
 @bot1.on(events.NewMessage(incoming=True))
 async def global_message_counter_handler(event):
@@ -242,7 +253,7 @@ async def global_message_counter_handler(event):
         await groups_counters_col.update_one({"chat_id": chat_id}, {"$set": {"counter": 0}})
 
 # ==========================================
-# 🎯 3. SECURE CLAIM ENGINE (/catch)
+# 🎯 4. SECURE CLAIM ENGINE (/catch)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/catch\s+(.*)$'))
 async def catch_handler(event):
@@ -293,7 +304,7 @@ async def catch_handler(event):
     await bot1.send_message(chat_id, success_text, parse_mode='html')
 
 # ==========================================
-# ⛩️ 4. EXCLUSIVE COLLECTION SYSTEM (/hai)
+# 👑 5. EXCLUSIVE COLLECTION SYSTEM (/hai)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/hai(?:@\w+)?$'))
 async def hai_initial_handler(event):
@@ -343,7 +354,8 @@ async def hai_pagination_callback(event):
     current_index = int(event.pattern_match.group(2).decode('utf-8'))
     
     user_doc = await users_catcher_col.find_one({"user_id": user_id})
-    if not user_doc: return await event.answer("❌ Verification Failed: This session does not belong to you.", alert=True)
+    if not user_doc: 
+        return await event.answer("❌ Verification Failed: This session does not belong to you.", alert=True)
         
     harem_list = user_doc["harem"]
     harem_list.reverse()
@@ -382,13 +394,15 @@ async def hai_pagination_callback(event):
         
         await event.edit(updated_text, parse_mode='html', file=media_file, buttons=updated_buttons)
     except Exception:
-        await event.delete()
-        await bot1.send_message(event.chat_id, updated_text, parse_mode='html', file=media_file, buttons=updated_buttons)
+        try:
+            await event.delete()
+            await bot1.send_message(event.chat_id, updated_text, parse_mode='html', file=media_file, buttons=updated_buttons)
+        except: pass
         
     await event.answer()
 
 # ==========================================
-# 📊 5. METRICS & CONFIGURATIONS
+# 📊 6. METRICS & CONFIGURATIONS
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/profile(?:@\w+)?$'))
 async def user_profile_handler(event):
@@ -437,3 +451,4 @@ if __name__ == '__main__':
     bot1.start(bot_token=MAIN_BOT_TOKEN)
     print("✅ Full Video-Support & Equal Chance Engine Live, Chief Dexter!")
     bot1.run_until_disconnected()
+
