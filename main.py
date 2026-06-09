@@ -1,4 +1,4 @@
-import io
+import  io
 import asyncio
 import logging
 import random
@@ -17,11 +17,12 @@ from telethon import TelegramClient, events, types, Button, errors
 # ⚡ PREMIUM MATHEMATICAL BOLD SERIF FONT CONVERTER (FIXED GLITCHES)
 # ==========================================
 def f(text):
-    """Converts regular English text to premium Mathematical Bold Serif Unicode Font flawlessly"""
+    """Converts regular English text to premium Bold Serif Unicode Font"""
     normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    bold = "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐚𝐛𝐜𝐝block𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"
+    bold = "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"
     trans = str.maketrans(normal, bold)
     return text.translate(trans)
+
 
 # ==========================================
 # 🔍 SMART TEXT NORMALIZER FOR TEXT MATCHING
