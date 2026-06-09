@@ -563,7 +563,7 @@ async def local_group_top_handler(event):
     msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
     for i, u in enumerate(top_users):
         count = u["group_catches"][str(chat_id)]
-        # အရင်ဆုံး fullname မရှိရင် သုံးမယ့် default ပြသနာကို သီးသန့် ရှင်းထုတ်လိုက်ပါ
+        # အပြင်မှာ ကြိုထုတ်ပြီး ရှင်းလိုက်တာ
         user_display = u.get('fullname') or f"User {u['user_id']}"
         msg += f"<b>{i+1}.</b> {user_display} — <code>{count} ကတ်</code>\n"
 
@@ -582,9 +582,13 @@ async def global_top_handler(event):
     msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
     for i, u in enumerate(top_users):
         count = u.get("total_caught", 0)
-        msg += f"<b>{i+1}.</b> {u.get('fullname', f'User {u[\"user_id\"]}')} — <code>{count} ကတ်</code>\n"
+        # ဒီနေရာကိုပါ အပေါ်ကလိုပဲ ပြင်ဆင်ပေးထားပါတယ် (Line 585)
+        user_display = u.get('fullname') or f"User {u['user_id']}"
+        msg += f"<b>{i+1}.</b> {user_display} — <code>{count} ကတ်</code>\n"
+        
     msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
-    await event.reply(msg, parse_mode='html')
+    await event.reply(msg, parse_mode='html') 
+
 
 # ==========================================
 # 🔍 10. SPECIFIC CHARACTER CHECK (/check)
