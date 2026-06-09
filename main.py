@@ -14,12 +14,12 @@ from html import escape as escape_html
 from telethon import TelegramClient, events, types, Button, errors
 
 # ==========================================
-# ⚡ GEN Z BOLD SERIF FONT CONVERTER
+# ⚡ PREMIUM MATHEMATICAL BOLD SERIF FONT CONVERTER (FIXED GLITCHES)
 # ==========================================
 def f(text):
-    """Converts regular English text to premium Bold Serif Unicode Font"""
+    """Converts regular English text to premium Mathematical Bold Serif Unicode Font flawlessly"""
     normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    bold = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢabcdefghijklmnopqrstuvwxyz0123456789"
+    bold = "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐚𝐛𝐜𝐝block𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"
     trans = str.maketrans(normal, bold)
     return text.translate(trans)
 
@@ -263,7 +263,7 @@ async def who_reveal_handler(event):
     await event.reply(reveal_text, parse_mode='html')
 
 # ==========================================
-# 🎯 5. CLAIM ENGINE CORE (/catch)
+# 🎯 5. CLAIM ENGINE CORE (/catch) - [FIXED FOR ARRAY SCHEMA]
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/catch\s+(.*)$'))
 async def catch_handler(event):
@@ -283,7 +283,6 @@ async def catch_handler(event):
         
     if spawn_data["claimed"]: return
     
-    # [FIXED] Smart Normalized Comparison to crush space/typo/punctuation/casing faults
     if normalize_name(catch_name) != normalize_name(spawn_data["name"]): 
         return await event.reply(f"❌ <b>{f('နာမည်မှားနေတယ် Boss! သေချာပြန်စစ်ပြီး ဖမ်းပါဦး။')}</b>", parse_mode='html')
         
@@ -293,15 +292,24 @@ async def catch_handler(event):
     mention = f"<a href='tg://user?id={user_id}'><b>{escape_html(fullname)}</b></a>"
     
     try:
+        # [FIXED]: $push သုံးပြီး Array Database ပုံစံထဲသို့ စနစ်တကျ ထည့်သွင်းခြင်း
         await users_catcher_col.update_one(
             {"user_id": user_id},
-            {"$inc": {
-                f"harem.{spawn_data['char_id']}": 1, 
-                "total_caught": 1, 
-                "wallet_balance": spawn_data["value"],
-                f"group_catches.{str(chat_id)}": 1
-             },
-             "$set": {"fullname": mention}},
+            {
+                "$push": {
+                    "harem": {
+                        "char_id": spawn_data['char_id'],
+                        "caught_date": time.time(),
+                        "rarity": spawn_data['rarity']
+                    }
+                },
+                "$inc": {
+                    "total_caught": 1, 
+                    "wallet_balance": spawn_data["value"],
+                    f"group_catches.{str(chat_id)}": 1
+                 },
+                 "$set": {"fullname": mention}
+            },
             upsert=True
         )
         
@@ -324,7 +332,7 @@ async def catch_handler(event):
         await event.reply(f"❌ <b>Catch Logic Fault:</b> <code>{e}</code>", parse_mode='html')
 
 # ==========================================
-# 🗄️ 6. STACKED COLLECTION MATRIX WITH FAIL-SAFE
+# 🗄️ 6. STACKED COLLECTION MATRIX WITH FAIL-SAFE - [FIXED FOR ARRAY SCHEMA & SYNTAX]
 # ==========================================
 async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, direction="next", target_msg=None):
     user_doc = await users_catcher_col.find_one({"user_id": user_id})
@@ -336,8 +344,15 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, di
         except: pass
         return
 
-    raw_harem = user_doc["harem"] 
-    owned_ids = [k for k, v in raw_harem.items() if v > 0]
+    # [FIXED]: Array list ထဲက ဇာတ်ကောင်တစ်ခုချင်းစီကို ရေတွက်ပြီး Dict format ပြန်ပြောင်းခြင်း
+    raw_harem = user_doc.get("harem", [])
+    harem_counts = {}
+    for item in raw_harem:
+        if isinstance(item, dict) and "char_id" in item:
+            cid = item["char_id"]
+            harem_counts[cid] = harem_counts.get(cid, 0) + 1
+            
+    owned_ids = [k for k, v in harem_counts.items() if v > 0]
     
     if not owned_ids:
         msg = f"🎒 <b>{f('သင့် Vault ထဲမှာ ပိုင်ဆိုင်မှု 0 ဖြစ်နေတယ် Boss!')}</b>"
@@ -359,7 +374,6 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, di
         except: pass
         return
 
-    # [FIXED] Robust Anti-Infinite Loop System for Video Filter & Missing Media Fallbacks
     attempts = 0
     media_file = None
     target_char = None
@@ -379,13 +393,12 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, di
             
             target_char = temp_char
             media_file = storage_msg.media if storage_msg else None
-            count = raw_harem.get(target_char["char_id"], 1)
+            count = harem_counts.get(target_char["char_id"], 1)
             break
         except Exception:
-            # Fallback for deleted storage messages or API failures
             target_char = temp_char
             media_file = None
-            count = raw_harem.get(target_char["char_id"], 1)
+            count = harem_counts.get(target_char["char_id"], 1)
             break
 
     if not target_char:
@@ -419,7 +432,6 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, di
         [Button.switch_inline("⛩️ SHOWCASE INLINE ⛩️", query=f"hai.{user_id}", same_peer=True)]
     ]
 
-    # [FIXED] Robust Deleted Message Fallback Handling
     if target_msg:
         try:
             await target_msg.edit(view_text, parse_mode='html', file=media_file, buttons=buttons)
@@ -454,7 +466,7 @@ async def haimode_filter_panel(event):
     )
 
 # ==========================================
-# 🎛️ 7. UNIFIED CALLBACK QUERY MATRIX PROCESSOR
+# 🎛️ 7. UNIFIED CALLBACK QUERY MATRIX PROCESSOR - [FIXED FOR ARRAY TRADE Matrix]
 # ==========================================
 @bot1.on(events.CallbackQuery)
 async def unified_callback_handler(event):
@@ -512,11 +524,24 @@ async def unified_callback_handler(event):
             s_doc = await users_catcher_col.find_one({"user_id": sender_id})
             t_doc = await users_catcher_col.find_one({"user_id": target_id})
             
-            if not s_doc or not t_doc or s_doc.get("harem", {}).get(my_char_id, 0) <= 0 or t_doc.get("harem", {}).get(their_char_id, 0) <= 0:
+            s_harem = s_doc.get("harem", []) if s_doc else []
+            t_harem = t_doc.get("harem", []) if t_doc else []
+            
+            s_item = next((x for x in s_harem if isinstance(x, dict) and x.get("char_id") == my_char_id), None)
+            t_item = next((x for x in t_harem if isinstance(x, dict) and x.get("char_id") == their_char_id), None)
+            
+            if not s_item or not t_item:
                 return await event.edit(f"❌ <b>{f('CONTRACT FAILED / ပိုင်ဆိုင်မှု အခြေအနေ ပြောင်းလဲသွားလို့ မအောင်မြင်တော့ပါ!')}</b>", parse_mode='html')
                 
-            await users_catcher_col.update_one({"user_id": sender_id}, {"$inc": {f"harem.{my_char_id}": -1, f"harem.{their_char_id}": 1}})
-            await users_catcher_col.update_one({"user_id": target_id}, {"$inc": {f"harem.{their_char_id}": -1, f"harem.{my_char_id}": 1}})
+            # [FIXED FOR ARRAY]: Array ထဲကနေ တစ်ခုချင်းစီ ဖယ်ထုတ်ပြီး နေရာလဲလှယ်ခြင်း လုပ်ငန်းစဉ်
+            s_harem.remove(s_item)
+            t_harem.remove(t_item)
+            
+            s_harem.append({"char_id": their_char_id, "caught_date": time.time(), "rarity": t_item.get("rarity", "Unknown")})
+            t_harem.append({"char_id": my_char_id, "caught_date": time.time(), "rarity": s_item.get("rarity", "Unknown")})
+            
+            await users_catcher_col.update_one({"user_id": sender_id}, {"$set": {"harem": s_harem}})
+            await users_catcher_col.update_one({"user_id": target_id}, {"$set": {"harem": t_harem}})
             
             await event.edit(f"🤝 <b>{f('TRADE CONCLUDED / ကတ်လဲလှယ်ခြင်း လုပ်ငန်းစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။ 🔥')}</b>", parse_mode='html')
 
@@ -546,7 +571,7 @@ async def profile_handler(event):
     await event.reply(profile_text, parse_mode='html')
 
 # ==========================================
-# 🏆 9. LEADERBOARD SYSTEM (/top & /gtop)
+# 🏆 9. LEADERBOARD SYSTEM (/top & /gtop) - [FIXED SYNTAX]
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/top(?:@\w+)?$'))
 async def local_group_top_handler(event):
@@ -563,7 +588,6 @@ async def local_group_top_handler(event):
     msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
     for i, u in enumerate(top_users):
         count = u["group_catches"][str(chat_id)]
-        # အပြင်မှာ ကြိုထုတ်ပြီး ရှင်းလိုက်တာ
         user_display = u.get('fullname') or f"User {u['user_id']}"
         msg += f"<b>{i+1}.</b> {user_display} — <code>{count} ကတ်</code>\n"
 
@@ -582,13 +606,11 @@ async def global_top_handler(event):
     msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
     for i, u in enumerate(top_users):
         count = u.get("total_caught", 0)
-        # ဒီနေရာကိုပါ အပေါ်ကလိုပဲ ပြင်ဆင်ပေးထားပါတယ် (Line 585)
         user_display = u.get('fullname') or f"User {u['user_id']}"
         msg += f"<b>{i+1}.</b> {user_display} — <code>{count} ကတ်</code>\n"
         
     msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
     await event.reply(msg, parse_mode='html') 
-
 
 # ==========================================
 # 🔍 10. SPECIFIC CHARACTER CHECK (/check)
@@ -636,7 +658,7 @@ async def check_points_balance(event):
     )
 
 # ==========================================
-# 🎁 12. PEER-TO-PEER ASSET TRANSFER (/gift)
+# 🎁 12. PEER-TO-PEER ASSET TRANSFER (/gift) - [FIXED FOR ARRAY SCHEMA]
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/gift\s+(.+)$'))
 async def gift_asset_handler(event):
@@ -652,10 +674,14 @@ async def gift_asset_handler(event):
         return await event.reply(f"❌ <b>{f('Loop Error! မိမိကိုယ်ကို ပြန်လည် Gift ပေးလို့ မရပါဘူး Bro!')} 💀</b>", parse_mode='html')
 
     sender_doc = await users_catcher_col.find_one({"user_id": sender_id})
-    if not sender_doc or sender_doc.get("harem", {}).get(char_id, 0) <= 0:
+    sender_harem = sender_doc.get("harem", []) if sender_doc else []
+    
+    char_item = next((x for x in sender_harem if isinstance(x, dict) and x.get("char_id") == char_id), None)
+    if not char_item:
         return await event.reply(f"❌ <b>{f('Transaction Refused! သင့် Vault ထဲမှာ ဒီကတ် လုံလောက်အောင် မရှိဘူးနော်!')}</b>", parse_mode='html')
 
-    await users_catcher_col.update_one({"user_id": sender_id}, {"$inc": {f"harem.{char_id}": -1}})
+    sender_harem.remove(char_item)
+    await users_catcher_col.update_one({"user_id": sender_id}, {"$set": {"harem": sender_harem}})
     
     receiver_sender = await reply_msg.get_sender()
     r_fullname = f"@{receiver_sender.username}" if receiver_sender and getattr(receiver_sender, 'username', None) else "Agent Target"
@@ -663,7 +689,11 @@ async def gift_asset_handler(event):
 
     await users_catcher_col.update_one(
         {"user_id": receiver_id},
-        {"$inc": {f"harem.{char_id}": 1, "total_caught": 1}, "$set": {"fullname": r_mention}},
+        {
+            "$push": {"harem": {"char_id": char_id, "caught_date": time.time(), "rarity": char_item.get("rarity", "Unknown")}}, 
+            "$inc": {"total_caught": 1}, 
+            "$set": {"fullname": r_mention}
+        },
         upsert=True
     )
     await event.reply(
@@ -675,7 +705,7 @@ async def gift_asset_handler(event):
     )
 
 # ==========================================
-# 🛒 13. PREMIUM MARKETPLACE SYSTEM (/sell & /buy)
+# 🛒 13. PREMIUM MARKETPLACE SYSTEM (/sell & /buy) - [FIXED FOR ARRAY SCHEMA]
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/sell\s+([a-zA-Z0-9_]+)\s+(\d+)$'))
 async def sell_market_handler(event):
@@ -687,13 +717,17 @@ async def sell_market_handler(event):
         return await event.reply(f"❌ <b>{f('ဈေးနှုန်းက အနည်းဆုံး 1 PTS တော့ ရှိရမယ်လေ Bro!')}</b>", parse_mode='html')
     
     user_doc = await users_catcher_col.find_one({"user_id": user_id})
-    if not user_doc or user_doc.get("harem", {}).get(char_id, 0) <= 0:
+    user_harem = user_doc.get("harem", []) if user_doc else []
+    
+    char_item = next((x for x in user_harem if isinstance(x, dict) and x.get("char_id") == char_id), None)
+    if not char_item:
         return await event.reply(f"❌ <b>{f('Escrow Refused! သင့်ဆီမှာ ရောင်းစရာ ဒီလိုကတ် မရှိပါဘူး Bro!')}</b>", parse_mode='html')
         
     char_data = await characters_base_col.find_one({"char_id": char_id})
     if not char_data: return await event.reply(f"❌ <b>{f('Character ID မှားနေတယ် Bro!')}</b>", parse_mode='html')
 
-    await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {f"harem.{char_id}": -1}})
+    user_harem.remove(char_item)
+    await users_catcher_col.update_one({"user_id": user_id}, {"$set": {"harem": user_harem}})
     
     listing_id = f"L{random.randint(1000, 9999)}"
     await marketplace_col.insert_one({
@@ -738,9 +772,15 @@ async def buy_market_handler(event):
     if not buyer_doc or buyer_doc.get("wallet_balance", 0) < price:
         return await event.reply(f"❌ <b>{f('Credit Denied! ဒီကတ်ကို ဝယ်ဖို့ ရမှတ် မလုံလောက်ဘူး!')} (လိုအပ်ချက်: {price} PTS)</b>", parse_mode='html')
         
+    char_data = await characters_base_col.find_one({"char_id": char_id})
+    char_rarity = char_data.get("rarity", "Unknown") if char_data else "Unknown"
+    
     res = await users_catcher_col.update_one(
         {"user_id": buyer_id, "wallet_balance": {"$gte": price}},
-        {"$inc": {"wallet_balance": -price, f"harem.{char_id}": 1, "total_caught": 1}}
+        {
+            "$inc": {"wallet_balance": -price, "total_caught": 1},
+            "$push": {"harem": {"char_id": char_id, "caught_date": time.time(), "rarity": char_rarity}}
+        }
     )
     if res.modified_count == 0: return await event.reply(f"❌ <b>{f('Transaction Error! ငွေကြေးလွှဲပြောင်းမှု ပြဿနာတက်သွားတယ် Bro!')}</b>", parse_mode='html')
     
@@ -759,7 +799,7 @@ async def buy_market_handler(event):
     )
 
 # ==========================================
-# 🤝 14. PEER TRADE MATRIX (/trade)
+# 🤝 14. PEER TRADE MATRIX (/trade) - [FIXED FOR ARRAY SCHEMA]
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/trade\s+([a-zA-Z0-9_]+)\s+([a-zA-Z0-9_]+)$'))
 async def trade_proposal_handler(event):
@@ -778,9 +818,15 @@ async def trade_proposal_handler(event):
     s_doc = await users_catcher_col.find_one({"user_id": sender_id})
     t_doc = await users_catcher_col.find_one({"user_id": target_user_id})
     
-    if not s_doc or s_doc.get("harem", {}).get(my_char_id, 0) <= 0:
+    s_harem = s_doc.get("harem", []) if s_doc else []
+    t_harem = t_doc.get("harem", []) if t_doc else []
+    
+    s_has = any(isinstance(x, dict) and x.get("char_id") == my_char_id for x in s_harem)
+    t_has = any(isinstance(x, dict) and x.get("char_id") == their_char_id for x in t_harem)
+    
+    if not s_has:
         return await event.reply(f"❌ သင့်ထံတွင် ID: <code>{my_char_id}</code> မရှိပါ Bro!", parse_mode='html')
-    if not t_doc or t_doc.get("harem", {}).get(their_char_id, 0) <= 0:
+    if not t_has:
         return await event.reply(f"❌ ၎င်းထံတွင် ID: <code>{their_char_id}</code> မရှိပါ Bro!", parse_mode='html')
         
     s_char = await characters_base_col.find_one({"char_id": my_char_id})
@@ -880,4 +926,3 @@ if __name__ == '__main__':
     print("🛰️ Sovereign Matrix Grid Online...")
     bot1.start(bot_token=MAIN_BOT_TOKEN)
     bot1.run_until_disconnected()
-
