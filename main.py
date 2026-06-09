@@ -45,6 +45,7 @@ APP_ID = 35766004
 APP_HASH = 'd15b4226b81724722279bae6af69e22d'
 MAIN_BOT_TOKEN = "8575371720:AAEWWV42CGrwooM_joiJXdo2iEw2_7atyXU"
 SPECIFIC_CONTROL_GROUP = -1003940667453 
+ALLOWED_WHO_GROUP = -1003580630981
 
 # ==========================================
 # 🗄️ DATABASE CONNECTION MATRIX
@@ -111,7 +112,7 @@ async def add_character(event):
         return await event.reply(f"❌ <b>{f('Rarity Number မှားနေတယ်! 1 ကနေ 6 ထိပဲ ရွေးပါ။')}</b>", parse_mode='html')
 
     if not event.is_reply: 
-        return await event.reply(f"❌ <b>{f('Media တစ်ခုခုကို Reply ပြန်ပေးဦးလေ Chief!')}</b>", parse_mode='html')
+        return await event.reply(f"❌ <b>{f('Media တစ်ခုခုကို Reply ပြန်ပေးဦးလေ Boss!')}</b>", parse_mode='html')
 
     reply_msg = await event.get_reply_message()
     if not reply_msg or not (reply_msg.photo or reply_msg.video or reply_msg.document):
@@ -148,7 +149,7 @@ async def add_character(event):
             f"🌟 <b>{f('Rarity')}:</b> {r_info['name']}\n"
             f"💎 <b>{f('Worth')}:</b> <code>{r_info['value']} PTS</code>\n"
             f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-            f"<blockquote><b>{f('Status')}:</b> Storage ID {storage_id} နဲ့အိုင်တမ်အသစ်ကို Database ထဲ အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ Chief! 😎🎧</blockquote>"
+            f"<blockquote><b>{f('Status')}:</b> Storage ID {storage_id} နဲ့ အိုင်တမ်အသစ်ကို Database ထဲ အောင်မြင်စွာ ချိတ်ဆက်ပြီးပါပြီ Boss! 😎🎧</blockquote>"
         )
         await event.reply(success_msg, parse_mode='html')
 
@@ -156,9 +157,9 @@ async def add_character(event):
         await event.reply(f"❌ <b>{f('Database Inject Error')}:</b> <code>{escape_html(str(e))}</code>", parse_mode='html')
 
 # ==========================================
-# 🛰️ 2. OVERRIDE FORCE SPAWN ENGINE (/fspawn)
+# 🛰️ 2. OVERRIDE FORCE SPAWN ENGINE (/fspawn & /haii)
 # ==========================================
-@bot1.on(events.NewMessage(pattern=r'^/fspawn(?:@\w+)?$'))
+@bot1.on(events.NewMessage(pattern=r'^/(fspawn|haii)(?:@\w+)?$'))
 async def force_spawn_by_owner(event):
     if event.sender_id != OWNER_ID: return
     await trigger_dynamic_spawn(event.chat_id)
@@ -195,7 +196,7 @@ async def trigger_dynamic_spawn(chat_id):
             chat_id, 
             f"⚡ <b>{f('MYSTERY DROP DETECTED / ဘယ်သူလေး ပေါ်လာတာလဲ...')} 🫣</b>\n"
             f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-            f"<blockquote><b>{f('Hey Hunters')}!</b> ဒီပုဂ္ဂိုလ်က ဘယ်သူဖြစ်မလဲ? သဲလွန်စတွေ ကြည့်ဖို့ ဒီပိုစ့်ကို <code>/who</code> နဲ့ အမြန်ဆုံး Reply ပြန်ပြီး စစ်ဆေးလိုက်ပါဗျို့! 👀🔥</blockquote>\n"
+            f"<blockquote><b>{f('Hey Hunters')}!</b> Diပုဂ္ဂိုလ်က ဘယ်သူဖြစ်မလဲ? သဲလွန်စတွေ ကြည့်ဖို့ ဒီပိုစ့်ကို <code>/who</code> နဲ့ အမြန်ဆုံး Reply ပြန်ပြီး စစ်ဆေးလိုက်ပါဗျို့! 👀🔥</blockquote>\n"
             f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡",
             parse_mode='html',
             file=storage_msg.media
@@ -216,16 +217,17 @@ async def trigger_dynamic_spawn(chat_id):
         print(f"Spawn Error Tracker: {e}")
 
 # ==========================================
-# 💡 4. IDENTITY REVEAL ENGINE (/who)
+# 💡 4. IDENTITY REVEAL ENGINE (/who) - OPEN FOR ALL GROUPS
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/who$'))
 async def who_reveal_handler(event):
     if event.is_private: return
     chat_id = event.chat_id
     
+    # [FIXED] Group သီးသန့် ကန့်သတ်ချက်ကို ဖယ်ရှားလိုက်သောကြောင့် အကုန်လုံး သုံးလို့ရပါပြီ။
     if chat_id not in active_group_spawns:
         return await event.reply(
-            f"❌ <b>{f('လက်ရှိ တက်ကြွနေတဲ့ Drop မရှိသေးပါဘူး Chief!')}</b>", parse_mode='html'
+            f"❌ <b>{f('လက်ရှိ တက်ကြွနေတဲ့ Drop မရှိသေးပါဘူး Boss!')}</b>", parse_mode='html'
         )
         
     spawn_data = active_group_spawns[chat_id]
@@ -270,7 +272,7 @@ async def catch_handler(event):
     if spawn_data["claimed"]: return
     
     if catch_name != spawn_data["name"].lower(): 
-        return await event.reply(f"❌ <b>{f('နာမည်မှားနေတယ် Chief! သေချာပြန်စစ်ပြီး ဖမ်းပါဦး။')}</b>", parse_mode='html')
+        return await event.reply(f"❌ <b>{f('နာမည်မှားနေတယ် Boss! သေချာပြန်စစ်ပြီး ဖမ်းပါဦး။')}</b>", parse_mode='html')
         
     active_group_spawns[chat_id]["claimed"] = True 
     sender = await event.get_sender()
@@ -280,7 +282,12 @@ async def catch_handler(event):
     try:
         await users_catcher_col.update_one(
             {"user_id": user_id},
-            {"$inc": {f"harem.{spawn_data['char_id']}": 1, "total_caught": 1, "wallet_balance": spawn_data["value"]},
+            {"$inc": {
+                f"harem.{spawn_data['char_id']}": 1, 
+                "total_caught": 1, 
+                "wallet_balance": spawn_data["value"],
+                f"group_catches.{str(chat_id)}": 1
+             },
              "$set": {"fullname": mention}},
             upsert=True
         )
@@ -296,7 +303,7 @@ async def catch_handler(event):
             f"🌟 <b>{f('Rarity Class')}:</b> {spawn_data['rarity']}\n"
             f"🪙 <b>{f('Bounty Added')}:</b> <code>+{spawn_data['value']} PTS</code>\n"
             f"👑 ━━━━━━━━━━━━━━━━━━━━ 👑\n"
-            f"<blockquote><b>{f('Mission Secured')}!</b> ဤပုဂ္ဂိုလ်ကို သင့်ရဲ့ စုဆောင်းမှု Vault ထဲသို့ အပိုင်ဆွဲထည့်လိုက်ပြီနော် ရှယ်ပဲ Chief! 💅🔥</blockquote>"
+            f"<blockquote><b>{f('Mission Secured')}!</b> ဤပုဂ္ဂိုလ်ကို သင့်ရဲ့ စုဆောင်းမှု Vault ထဲသို့ အပိုင်ဆွဲထည့်လိုက်ပြီနော် ရှယ်ပဲ Boss! 💅🔥</blockquote>"
         )
         await bot1.send_message(chat_id, success_text, parse_mode='html')
     except Exception as e:
@@ -304,9 +311,9 @@ async def catch_handler(event):
         await event.reply(f"❌ <b>Catch Logic Fault:</b> <code>{e}</code>", parse_mode='html')
 
 # ==========================================
-# 🗄️ 6. STACKED COLLECTION MATRIX WITH FILTER (/hai & /haii)
+# 🗄️ 6. STACKED COLLECTION MATRIX WITH VIDEO FILTER (/hai)
 # ==========================================
-async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, target_msg=None):
+async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, direction="next", target_msg=None):
     user_doc = await users_catcher_col.find_one({"user_id": user_id})
     if not user_doc or not user_doc.get("harem"):
         msg = f"🎒 <b>{f('VAULT IS EMPTY / ဘာမှမရှိသေးဘူး Bro!')}</b>\n<blockquote>ရင်ခုန်စရာကောင်းတဲ့ ကတ်တွေကို <code>/catch</code> နဲ့ အရင်ဆုံး လိုက်ဖမ်းကြည့်လိုက်ပါဦး! 🎟️</blockquote>"
@@ -318,7 +325,7 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, ta
     owned_ids = [k for k, v in raw_harem.items() if v > 0]
     
     if not owned_ids:
-        return await bot1.send_message(chat_id, f"🎒 <b>{f('သင့် Vault ထဲမှာ ပိုင်ဆိုင်မှု 0 ဖြစ်နေတယ် Chief!')}</b>", parse_mode='html')
+        return await bot1.send_message(chat_id, f"🎒 <b>{f('သင့် Vault ထဲမှာ ပိုင်ဆိုင်မှု 0 ဖြစ်နေတယ် Boss!')}</b>", parse_mode='html')
 
     db_chars = await characters_base_col.find({"char_id": {"$in": owned_ids}}).to_list(length=None)
     
@@ -327,28 +334,49 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, ta
 
     total_chars = len(db_chars)
     if total_chars == 0:
-        msg = f"❌ <b>{f('NO ASSETS FOUND / ဒီ Tier မှာ တစ်ကတ်မှ မရှိသေးဘူး!')} 🫣</b>"
+        msg = f"❌ <b>{f('NO ASSETS FOUND / DI Tier မှာ တစ်ကတ်မှ မရှိသေးဘူး!')} 🫣</b>"
         if target_msg: await bot1.send_message(chat_id, msg, parse_mode='html')
         else: await bot1.send_message(chat_id, msg, parse_mode='html')
         return
 
-    if current_index >= total_chars: current_index = 0
-    elif current_index < 0: current_index = total_chars - 1
+    # Video Exclude System
+    attempts = 0
+    media_file = None
+    target_char = None
+    count = 1
 
-    target_char = db_chars[current_index]
-    count = raw_harem.get(target_char["char_id"], 1)
-    
-    try:
-        storage_msg = await bot1.get_messages(SPECIFIC_CONTROL_GROUP, ids=target_char["storage_msg_id"])
-        media_file = storage_msg.media if storage_msg else None
-    except: media_file = None
+    while attempts < total_chars:
+        if current_index >= total_chars: current_index = 0
+        elif current_index < 0: current_index = total_chars - 1
+
+        temp_char = db_chars[current_index]
+        try:
+            storage_msg = await bot1.get_messages(SPECIFIC_CONTROL_GROUP, ids=temp_char["storage_msg_id"])
+            if storage_msg and storage_msg.video:
+                if direction == "prev": current_index -= 1
+                else: current_index += 1
+                attempts += 1
+                continue
+            
+            target_char = temp_char
+            media_file = storage_msg.media if storage_msg else None
+            count = raw_harem.get(target_char["char_id"], 1)
+            break
+        except:
+            target_char = temp_char
+            break
+
+    if not target_char:
+        return await bot1.send_message(chat_id, f"❌ <b>{f('ပြသရန် ဓါတ်ပုံပုံစံ ကတ်ပြားများ ရှာမတွေ့ပါ Bro!')}</b>", parse_mode='html')
 
     fullname = user_doc.get("fullname", f"Agent {user_id}")
     filter_label = filter_rarity.upper() if filter_rarity else "GLOBAL ALL"
+    total_caught = user_doc.get("total_caught", 0)
     
     view_text = (
         f"⬢ {fullname}'s <b>{f('SHOWREEL VAULT / ပြခန်း')}</b> 🎒\n"
         f"⚙️ Grid Filter: <code>[{filter_label}]</code> — Index ({current_index + 1}/{total_chars})\n"
+        f"🎒 <b>{f('Total Caught / စုစုပေါင်းရရှိမှု')}:</b> <code>{total_caught} ကတ်</code>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
         f"👤 <b>{f('Name / Identity')}:</b> <code>{escape_html(target_char['name'])}</code> <b>(x{count})</b>\n"
         f"🆔 <b>{f('Character ID')}:</b> <code>{target_char['char_id']}</code>\n"
@@ -356,7 +384,7 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, ta
         f"🌟 <b>{f('Rarity Class')}:</b> {target_char['rarity']}\n"
         f"💎 <b>{f('Power Value')}:</b> <code>{target_char['currency_value']} PTS</code>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-        f"<blockquote><b>{f('Flex Time')}:</b> တခြားပိုင်ဆိုင်မှုတွေကို အောက်က လမ်းညွှန်ခလုတ်တွေ သုံးပြီး စစ်ဆေးကြည့်လိုက်ပါဦး Chief! 😉⚡</blockquote>"
+        f"<blockquote><b>{f('Flex Time')}:</b> တခြားပိုင်ဆိုင်မှုတွေကို အောက်က လမ်းညွှန်ခလုတ်တွေ သုံးပြီး စစ်ဆေးကြည့်လိုက်ပါဦးဗျာ! 😉⚡</blockquote>"
     )
 
     f_key = filter_rarity if filter_rarity else "all"
@@ -376,10 +404,10 @@ async def render_harem_matrix(chat_id, user_id, filter_rarity, current_index, ta
     else:
         await bot1.send_message(chat_id, view_text, parse_mode='html', file=media_file, buttons=buttons)
 
-@bot1.on(events.NewMessage(pattern=r'^/hai[iI]?(?:@\w+)?$'))
+@bot1.on(events.NewMessage(pattern=r'^/hai(?:@\w+)?$'))
 async def hai_initial_handler(event):
     if event.is_private: return
-    await render_harem_matrix(event.chat_id, event.sender_id, filter_rarity=None, current_index=0, target_msg=None)
+    await render_harem_matrix(event.chat_id, event.sender_id, filter_rarity=None, current_index=0, direction="next", target_msg=None)
 
 @bot1.on(events.NewMessage(pattern=r'^/haimode(?:@\w+)?$'))
 async def haimode_filter_panel(event):
@@ -409,21 +437,20 @@ async def unified_callback_handler(event):
     data_parts = data_str.split('_')
     action_type = data_parts[0]
 
-    # Harem Vector Navigation System
     if action_type in ["filter", "nav"]:
         owner_id = int(data_parts[3]) if action_type == "filter" else int(data_parts[4])
         
         if event.sender_id != owner_id:
-            return await event.answer("⚠️ ဒါက မင်းခေါ်ထားတဲ့ Menu မဟုတ်ဘူးလေ Chief! ကိုယ်ပိုင်ကြည့်ဖို့ /hai လို့ရိုက်ပါ။", alert=True)
+            return await event.answer("⚠️ ဒါက မင်းခေါ်ထားတဲ့ Menu မဟုတ်ဘူးလေဗျာ! ကိုယ်ပိုင်ကြည့်ဖို့ /hai လို့ရိုက်ပါ။", alert=True)
             
-        await event.answer() # Stop Loading Spinner Immediately
+        await event.answer() 
         
         if action_type == "filter":
             r_type = data_parts[1]
             filter_key = None if r_type == "all" else r_type
             try: await event.delete()
             except: pass
-            await render_harem_matrix(event.chat_id, owner_id, filter_key, 0, target_msg=None)
+            await render_harem_matrix(event.chat_id, owner_id, filter_key, 0, "next", target_msg=None)
             
         elif action_type == "nav":
             action = data_parts[1]
@@ -432,9 +459,8 @@ async def unified_callback_handler(event):
             filter_key = None if f_key == "all" else f_key
             
             new_idx = c_idx + 1 if action == "next" else c_idx - 1
-            await render_harem_matrix(event.chat_id, owner_id, filter_key, new_idx, target_msg=event)
+            await render_harem_matrix(event.chat_id, owner_id, filter_key, new_idx, action, target_msg=event)
 
-    # Peer-to-Peer Trading Matrix Engine
     elif action_type == "tr":
         sub_action = data_parts[1]
         sender_id = int(data_parts[2])
@@ -467,7 +493,70 @@ async def unified_callback_handler(event):
             await event.edit(f"🤝 <b>{f('TRADE CONCLUDED / ကတ်လဲလှယ်ခြင်း လုပ်ငန်းစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။ 🔥')}</b>", parse_mode='html')
 
 # ==========================================
-# 🔍 8. SPECIFIC CHARACTER CHECK (/check)
+# 📊 8. PROFILE SYSTEM CORE (/profile)
+# ==========================================
+@bot1.on(events.NewMessage(pattern=r'^/profile(?:@\w+)?$'))
+async def profile_handler(event):
+    user_id = event.sender_id
+    user_doc = await users_catcher_col.find_one({"user_id": user_id})
+    
+    sender = await event.get_sender()
+    fullname = f"@{sender.username}" if sender and getattr(sender, 'username', None) else (getattr(sender, 'first_name', None) or "Hunter")
+    
+    total_caught = user_doc.get("total_caught", 0) if user_doc else 0
+    balance = user_doc.get("wallet_balance", 0) if user_doc else 0
+    
+    profile_text = (
+        f"👤 <b>{f('USER AGENT PROFILE / ကိုယ်ရေးဒေတာ')}</b>\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+        f"📛 <b>{f('Name')}:</b> <code>{escape_html(fullname)}</code>\n"
+        f"🆔 <b>{f('User ID')}:</b> <code>{user_id}</code>\n"
+        f"🎯 <b>{f('Total Caught / ဖမ်းမိစုစုပေါင်း')}:</b> <code>{total_caught} ကတ်</code>\n"
+        f"🪙 <b>{f('Wallet Balance / ရမှတ်လက်ကျန်')}:</b> <code>{balance} PTS</code>\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+    )
+    await event.reply(profile_text, parse_mode='html')
+
+# ==========================================
+# 🏆 9. LEADERBOARD SYSTEM (/top & /gtop)
+# ==========================================
+@bot1.on(events.NewMessage(pattern=r'^/top(?:@\w+)?$'))
+async def local_group_top_handler(event):
+    if event.is_private: return
+    chat_id = event.chat_id
+    
+    cursor = users_catcher_col.find({f"group_catches.{str(chat_id)}": {"$gt": 0}}).sort(f"group_catches.{str(chat_id)}", -1).limit(10)
+    top_users = await cursor.to_list(length=10)
+    
+    if not top_users:
+        return await event.reply(f"🏆 <b>{f('ဒီဂရုထဲမှာ Rank စာရင်း မရှိသေးပါဘူး Bro!')}</b>", parse_mode='html')
+        
+    msg = f"🏆 <b>{f('TOP 10 HUNTERS IN THIS GROUP')}</b>\n"
+    msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+    for i, u in enumerate(top_users):
+        count = u["group_catches"][str(chat_id)]
+        msg += f"<b>{i+1}.</b> {u.get('fullname', f'User {u[\"user_id\"]}')} — <code>{count} ကတ်</code>\n"
+    msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+    await event.reply(msg, parse_mode='html')
+
+@bot1.on(events.NewMessage(pattern=r'^/gtop(?:@\w+)?$'))
+async def global_top_handler(event):
+    cursor = users_catcher_col.find({"total_caught": {"$gt": 0}}).sort("total_caught", -1).limit(10)
+    top_users = await cursor.to_list(length=10)
+    
+    if not top_users:
+        return await event.reply(f"🏆 <b>{f('Global Leaderboard မှာ စာရင်းမရှိသေးပါဘူး Bro!')}</b>", parse_mode='html')
+        
+    msg = f"🌐 <b>{f('GLOBAL TOP 10 HUNTERS')}</b>\n"
+    msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+    for i, u in enumerate(top_users):
+        count = u.get("total_caught", 0)
+        msg += f"<b>{i+1}.</b> {u.get('fullname', f'User {u[\"user_id\"]}')} — <code>{count} ကတ်</code>\n"
+    msg += f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+    await event.reply(msg, parse_mode='html')
+
+# ==========================================
+# 🔍 10. SPECIFIC CHARACTER CHECK (/check)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/check\s+(.+)$'))
 async def check_character_id_handler(event):
@@ -491,12 +580,12 @@ async def check_character_id_handler(event):
         f"🌟 <b>{f('Rarity Class')}:</b> {character['rarity']}\n"
         f"💎 <b>{f('Market Value')}:</b> <code>{character['currency_value']} PTS</code>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-        f"<blockquote><b>{f('Status')}:</b> Matrix ဗဟိုဒေတာဘေ့စ်ကနေ အချက်အလက်တွေကို အောင်မြင်စွာ ရှာဖွေပေးပြီးပါပြီ Chief! 🛰️💀</blockquote>"
+        f"<blockquote><b>{f('Status')}:</b> Matrix ဗဟိုဒေတာဘေ့စ်ကနေ အချက်အလက်တွေကို အောင်မြင်စွာ ရှာဖွေပေးပြီးပါပြီ Bro! 🛰️💀</blockquote>"
     )
     await event.reply(info_text, parse_mode='html', file=media_file)
 
 # ==========================================
-# 💰 9. WALLET BALANCE CHECKER (/checkp)
+# 💰 11. WALLET BALANCE CHECKER (/checkp)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/checkp(?:@\w+)?$'))
 async def check_points_balance(event):
@@ -512,7 +601,7 @@ async def check_points_balance(event):
     )
 
 # ==========================================
-# 🎁 10. PEER-TO-PEER ASSET TRANSFER (/gift)
+# 🎁 12. PEER-TO-PEER ASSET TRANSFER (/gift)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/gift\s+(.+)$'))
 async def gift_asset_handler(event):
@@ -551,7 +640,7 @@ async def gift_asset_handler(event):
     )
 
 # ==========================================
-# 🛒 11. PREMIUM MARKETPLACE SYSTEM (/sell & /buy)
+# 🛒 13. PREMIUM MARKETPLACE SYSTEM (/sell & /buy)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/sell\s+([a-zA-Z0-9_]+)\s+(\d+)$'))
 async def sell_market_handler(event):
@@ -564,7 +653,7 @@ async def sell_market_handler(event):
     
     user_doc = await users_catcher_col.find_one({"user_id": user_id})
     if not user_doc or user_doc.get("harem", {}).get(char_id, 0) <= 0:
-        return await event.reply(f"❌ <b>{f('Escrow Refused! သင့်ဆီမှာ ရောင်းစရာ ဒီလိုကတ် မရှိပါဘူး Chief!')}</b>", parse_mode='html')
+        return await event.reply(f"❌ <b>{f('Escrow Refused! သင့်ဆီမှာ ရောင်းစရာ ဒီလိုကတ် မရှိပါဘူး Bro!')}</b>", parse_mode='html')
         
     char_data = await characters_base_col.find_one({"char_id": char_id})
     if not char_data: return await event.reply(f"❌ <b>{f('Character ID မှားနေတယ် Bro!')}</b>", parse_mode='html')
@@ -601,7 +690,7 @@ async def buy_market_handler(event):
     
     cheapest_listing = await marketplace_col.find({"char_id": char_id}).sort("price", 1).to_list(length=1)
     if not cheapest_listing: 
-        return await event.reply(f"❌ <b>{f('OUT OF STOCK / စျေးကွက်ထဲမှာ ဒီကတ် ရောင်းမယ့်သူ မရှိသေးဘူး Bro!')} 😮‍💨</b>", parse_mode='html')
+        return await event.reply(f"❌ <b>{f('OUT OF STOCK / စျေးကွက်ထဲမှာ DI ကတ် ရောင်းမယ့်သူ မရှိသေးဘူး Bro!')} 😮‍💨</b>", parse_mode='html')
     
     listing = cheapest_listing[0]
     price = listing["price"]
@@ -612,13 +701,13 @@ async def buy_market_handler(event):
     
     buyer_doc = await users_catcher_col.find_one({"user_id": buyer_id})
     if not buyer_doc or buyer_doc.get("wallet_balance", 0) < price:
-        return await event.reply(f"❌ <b>{f('Credit Denied! ဒီကတ်ကို ဝယ်ဖို့ ရမှတ် မလုံလောက်ဘူး!')} (လိုအပ်ချက်: {price} PTS)</b>", parse_mode='html')
+        return await event.reply(f"❌ <b>{f('Credit Denied! DI ကတ်ကို ဝယ်ဖို့ ရမှတ် မလုံလောက်ဘူး!')} (လိုအပ်ချက်: {price} PTS)</b>", parse_mode='html')
         
     res = await users_catcher_col.update_one(
         {"user_id": buyer_id, "wallet_balance": {"$gte": price}},
         {"$inc": {"wallet_balance": -price, f"harem.{char_id}": 1, "total_caught": 1}}
     )
-    if res.modified_count == 0: return await event.reply(f"❌ <b>{f('Transaction Error! ငွေကြေးလွှဲပြောင်းမှု ပြဿနာတက်သွားတယ် Bro!')}</b>", parse_mode='html')
+    if res.modified_count == 0: return await event.reply(f"❌ <b>{f('Transaction Error! Ngwe kyeလွှဲပြောင်းမှု ပြဿနာတက်သွားတယ် Bro!')}</b>", parse_mode='html')
     
     await users_catcher_col.update_one({"user_id": seller_id}, {"$inc": {"wallet_balance": price}})
     await marketplace_col.delete_one({"listing_id": listing["listing_id"]})
@@ -630,12 +719,12 @@ async def buy_market_handler(event):
         f"🆔 <b>{f('Asset ID')}:</b> <code>{char_id}</code>\n"
         f"🪙 <b>{f('Settled Price')}:</b> <code>{price} PTS</code>\n"
         f"💳 ━━━━━━━━━━━━━━━━━━━━ 💳\n"
-        f"<blockquote>🎉 <b>{f('Success')}:</b> စျေးကွက်ထဲကနေ ကတ်ကို သင့်ရဲ့ Showroom Vault ထဲသို့ တိုက်ရိုက် လွှဲပြောင်းထည့်သွင်းပေးလိုက်ပါပြီ Chief! 💎🎧</blockquote>",
+        f"<blockquote>🎉 <b>{f('Success')}:</b> စျေးကွက်ထဲကနေ ကတ်ကို သင့်ရဲ့ Showroom Vault ထဲသို့ တိုက်ရိုက် လွှဲပြောင်းထည့်သွင်းပေးလိုက်ပါပြီ Bro! 💎🎧</blockquote>",
         parse_mode='html'
     )
 
 # ==========================================
-# 🤝 12. PEER TRADE MATRIX (/trade)
+# 🤝 14. PEER TRADE MATRIX (/trade)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/trade\s+([a-zA-Z0-9_]+)\s+([a-zA-Z0-9_]+)$'))
 async def trade_proposal_handler(event):
@@ -668,7 +757,7 @@ async def trade_proposal_handler(event):
         f"📤 <b>{f('Your Offer')}:</b> <code>{s_char['name']}</code> ({my_char_id})\n"
         f"📥 <b>{f('Their Request')}:</b> <code>{t_char['name']}</code> ({their_char_id})\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-        f"<blockquote><b>{f('Notice')}:</b> ဒီစာချုပ်ကို အတည်ပြုဖို့ ဆုံးဖြတ်ပိုင်ခွင့်က ကမ်းလှမ်းခံရသူထံမှာပဲ ရှိပါတယ်နော် Chief! ⚡👀</blockquote>"
+        f"<blockquote><b>{f('Notice')}:</b> DI စာချုပ်ကို အတည်ပြုဖို့ ဆုံးဖြတ်ပိုင်ခွင့်က ကမ်းလှမ်းခံရသူထံမှာပဲ ရှိပါတယ်နော် Bro! ⚡👀</blockquote>"
     )
     
     buttons = [[
@@ -678,7 +767,7 @@ async def trade_proposal_handler(event):
     await event.reply(trade_text, parse_mode='html', buttons=buttons)
 
 # ==========================================
-# ⚙️ 13. CHANGE SPAWN TIME/COUNT TRIGGER (/changetime)
+# ⚙️ 15. CHANGE SPAWN TIME/COUNT TRIGGER (/changetime)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/changetime\s+(\d+)$'))
 async def change_spawn_target_handler(event):
@@ -697,13 +786,13 @@ async def change_spawn_target_handler(event):
     success_text = (
         f"⚙️ <b>{f('SPAWN THRESHOLD UPDATED / သတ်မှတ်ချက် ပြောင်းလဲပြီးပါပြီ')}</b>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-        f"<blockquote><b>{f('Config Locked')}!</b> ဒီဂရုမှာ ကတ်အလိုအလျောက်ထွက်မယ့် စာစောင်ရေ အရေအတွက်ကို <code>{new_target}</code> စောင်သို့ ပြောင်းလဲသတ်မှတ်လိုက်ပါပြီ Chief! ⚡🥷</blockquote>\n"
+        f"<blockquote><b>{f('Config Locked')}!</b> DIဂရုမှာ ကတ်အလိုအလျောက်ထွက်မယ့် စာစောင်ရေ အရေအတွက်ကို <code>{new_target}</code> စောင်သို့ ပြောင်းလဲသတ်မှတ်လိုက်ပါပြီ Boss! ⚡🥷</blockquote>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
     )
     await event.reply(success_text, parse_mode='html')
 
 # ==========================================
-# 📜 14. HELPMENU PANELS (/helpp & /owner)
+# 📜 16. HELPMENU PANELS (/helpp & /owner)
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/helpp(?:@\w+)?$'))
 async def public_help_handler(event):
@@ -711,8 +800,11 @@ async def public_help_handler(event):
         f"🌌 <b>{f('SOVEREIGN MULTI-UNIVERSE HELPMENU')}</b>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
         f"ℹ️ <b>{f('GLOBAL MATRIX COMMANDS / အများသုံးစနစ်များ')}:</b>\n\n"
-        f"🔘 <code>/hai</code> သို့မဟုတ် <code>/haii</code> — သင့်ပိုင်ဆိုင်မှု Showroom ပြခန်းကို ကြည့်ရန် 🎒\n\n"
-        f"🔘 <code>/who</code> — ပေါ်နေတဲ့ ပုဂ္ဂိုလ်ရဲ့ အချက်အလက် သဲလွန်စကို Reply ဖြင့် စစ်ဆေးရန် 👀\n\n"
+        f"🔘 <code>/hai</code> — သင့်ပိုင်ဆိုင်မှု Showroom ပြခန်းကို ကြည့်ရန် 🎒\n\n"
+        f"🔘 <code>/profile</code> — သင့်ရဲ့ User Profile ဒေတာကို စစ်ဆေးရန် 👤\n\n"
+        f"🔘 <code>/top</code> — ယခု Group ထဲမှာ ကတ်အများဆုံးရထားတဲ့ Top 10 လူစာရင်း 🏆\n\n"
+        f"🔘 <code>/gtop</code> — Bot သုံးထားတဲ့ Group အားလုံးထဲက Top 10 လူစာရင်း 🌐\n\n"
+        f"🔘 <code>/who</code> — ပေါ်နေတဲ့ ပုဂ္ဂိုလ်ရဲ့ အချက်အလက် သဲလွန်စကို စစ်ဆေးရန် 👀\n\n"
         f"🔘 <code>/catch [Name]</code> — ပုဂ္ဂိုလ်တွေကို သင့်ရဲ့ Vault ထဲ ဖမ်းယူသိမ်းပိုက်ရန် 🎯\n\n"
         f"🔘 <code>/haimode</code> — မိမိပြခန်းကို Rarity အလိုက် ဇကာတင် စစ်ထုတ်ကြည့်ရန် 🎭\n\n"
         f"🔘 <code>/check [ID]</code> — သတ်မှတ် ID ရှိတဲ့ ပုဂ္ဂိုလ်ရဲ့ ကိုယ်ရေးဒေတာ စစ်ဆေးရန် 🔍\n\n"
@@ -729,14 +821,14 @@ async def public_help_handler(event):
 async def exclusive_owner_panel(event):
     if event.sender_id != OWNER_ID: return
     owner_text = (
-        f"👑 <b>{f('WELCOME BACK, CHIEF DEXTER!')} ⚔️</b>\n"
+        f"👑 <b>{f('WELCOME BACK, DEVELOPER!')} ⚔️</b>\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
         f"🛠️ <b>{f('ROOT COMMANDS / ဗဟိုထိန်းချုပ်မှုများ')}:</b>\n\n"
         f"⚙️ <code>/addchar Name | Category | Rarity_Num</code>\n"
         f"<blockquote><b>Database ထဲသို့ ကတ်အသစ်များ အတင်းထည့်သွင်းခြင်း။</b>\n"
         f"Rarity Numbers: 1=Legend, 2=Limit, 3=Mythic, 4=Epic, 5=Rare, 6=Common\n"
         f"<i>(Valid တဲ့ Media ဖိုင်တစ်ခုခုကို Reply ပြန်ပြီး သုံးစွဲရပါမယ်)</i></blockquote>\n"
-        f"⚙️ <code>/fspawn</code>\n"
+        f"⚙️ <code>/haii</code> သို့မဟုတ် <code>/fspawn</code>\n"
         f"<blockquote><b>မက်ဆေ့ခ်ျရေတွက်မှုကို ကျော်ဖြတ်ပြီး လက်ရှိဂရုထဲမှာ ကတ်တစ်ခု ချက်ချင်း Force Spawn ထုတ်ခြင်း။</b></blockquote>\n"
         f"⚙️ <code>/changetime [Count]</code>\n"
         f"<blockquote><b>ကတ်အလိုအလျောက် ထွက်မယ့် စာစောင်ရေ သတ်မှတ်ချက်ကို ပြောင်းလဲခြင်း။</b>\n"
