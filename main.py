@@ -201,7 +201,7 @@ async def add_character(event):
     except Exception as e:
         await event.reply(f"❌ <b>{f('Database Inject Error')}:</b> <code>{escape_html(str(e))}</code>", parse_mode='html')
 
-@bot.on(events.NewMessage(pattern=r'^/take (\d+)'))
+@bot1.on(events.NewMessage(pattern=r'^/take (\d+)'))
 async def take_mmk_telethon(event):
     # Owner ဟုတ်မဟုတ်နဲ့ DM ဟုတ်မဟုတ် စစ်ဆေးခြင်း
     if event.sender_id == OWNER_ID and event.is_private:
