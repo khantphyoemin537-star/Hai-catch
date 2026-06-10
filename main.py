@@ -256,8 +256,7 @@ async def who_reveal_handler(event):
         f"<code>/catch {spawn_data['name']}</code>\n"
         f"<blockquote><b>{f('Hurry Up')}!</b> အပေါ်က /catch xxx အမြန်ဆုံး Copy ယူပြီး ဦးအောင် ဖမ်းလိုက်တော့ Bestie!</blockquote>"
     )
-reply    await event.(reveal_text, parse_mode='html')
-
+reply = await event.reply(reveal_text, parse_mode='html')
 # ==========================================
 # 🎯 5. CLAIM ENGINE CORE (/catch)
 # ==========================================
