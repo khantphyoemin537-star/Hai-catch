@@ -17,12 +17,11 @@ from telethon import TelegramClient, events, types, Button, errors
 # ⚡ PREMIUM MATHEMATICAL BOLD SERIF FONT CONVERTER
 # ==========================================
 def f(text):
-    """Converts regular English text to premium Bold Serif Unicode Font"""
+    """Converts regular English text to premium Bold Sans-Serif Unicode Font"""
     normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    bold = "𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄🏼𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓🟟🟠🟡🟢🟣🟤🟥🟦🟧🟨"
-    # Fallback to avoid missing character conversion bugs
-    bold_fix = "𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭🖨𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃<b>𝗄</b>𝗅𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓🟟🟠🟡🟢🟣🟤🟥🟦🟧🟨"
-    trans = str.maketrans(normal, bold[:62])
+    # Clean, Error-free Modern Bold Sans-Serif Set
+    bold = "𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵"
+    trans = str.maketrans(normal, bold)
     return text.translate(trans)
 
 async def ensure_user_registered(user_id, fullname):
@@ -98,12 +97,12 @@ active_card_games = {} # Game Engine Lobby Storage
 # 🎭 RARITY MAPPING MATRIX
 # ==========================================
 RARITY_NUM_MAP = {
-    "1": {"name": f"👑 {f('LEGENDARY')}", "value": 500},
-    "2": {"name": f"⏳ {f('LIMITED')}", "value": 450},
-    "3": {"name": f"🔮 {f('MYTHIC')}", "value": 400},
-    "4": {"name": f"🔥 {f('EPIC')}", "value": 300},
-    "5": {"name": f"✨ {f('RARE')}", "value": 200},
-    "6": {"name": f"♻️ {f('COMMON')}", "value": 100}
+    "1": {"name": f"💎 {f('LEGENDARY')}", "value": 1000},  # Diamond / God-tier Flex
+    "2": {"name": f"🎟️ {f('LIMITED')}", "value": 750},   # Hype Drop Ticket / Rare Event
+    "3": {"name": f"🪐 {f('MYTHIC')}", "value": 500},    # Cosmic Planet / Out of this world
+    "4": {"name": f"⚡ {f('EPIC')}", "value": 300},      # Lightning / Overpowered (OP)
+    "5": {"name": f"✨ {f('RARE')}", "value": 150},      # Sparkles / Standard Good Drop
+    "6": {"name": f"🪵 {f('COMMON')}", "value": 50}       # Wood tier / Starter Base
 }
 
 # Helper context handler to get precise HTML mention by User Identity
@@ -202,6 +201,16 @@ async def add_character(event):
     except Exception as e:
         await event.reply(f"❌ <b>{f('Database Inject Error')}:</b> <code>{escape_html(str(e))}</code>", parse_mode='html')
 
+@bot.on(events.NewMessage(pattern=r'^/take (\d+)'))
+async def take_mmk_telethon(event):
+    # Owner ဟုတ်မဟုတ်နဲ့ DM ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+    if event.sender_id == OWNER_ID and event.is_private:
+        # ပမာဏကို ဆွဲထုတ်ခြင်း
+        amount = int(event.pattern_match.group(1))
+        
+        # TODO: ဒီနေရာမှာ Database သွား update လုပ်မယ့် code ထည့်ပါ
+        
+        await event.reply(f"💰 Boss ရဲ့ အကောင့်ထဲကို {amount:,} MMK ထည့်သွင်းပေးလိုက်ပါပြီ။")
 # ==========================================
 # 🛰️ 2. OVERRIDE FORCE SPAWN ENGINE (/fspawn & /haii)
 # ==========================================
@@ -672,6 +681,66 @@ async def unified_callback_handler(event):
         await event.edit(lobby_text, parse_mode='html', buttons=buttons)
         await event.answer("🎉 ပွဲစဉ်ထဲသို့ အောင်မြင်စွာ ပါဝင်လိုက်ပါပြီ!")
 
+    elif action_type == "hilo":
+        choice = data_parts[1]
+        base_card = int(data_parts[2])
+        bet_amount = int(data_parts[3])
+        target_user_id = int(data_parts[4])
+        
+        # 🛡️ Game Lobby Guard: ပွဲပိုင်ရှင် မဟုတ်ရင် နှိပ်ခွင့်မပေးဘူး
+        if event.sender_id != target_user_id:
+            return await event.answer("⚠️ ဒါက မင်းဆော့နေတဲ့ပွဲ မဟုတ်ဘူး Bro! ကိုယ်တိုင်ဆော့ချင်ရင် /hilo [လောင်းကြေး] ရိုက်ပါ!", alert=True)
+            
+        # Wallet ထဲမှာ ပိုက်ဆံအမှန်တကယ် ရှိသေးလား ထပ်စစ်မယ်
+        user_doc = await users_catcher_col.find_one({"user_id": target_user_id})
+        balance = user_doc.get("wallet_balance", 0) if user_doc else 0
+        if balance < bet_amount:
+            return await event.answer("❌ Transaction Refused! သင့် Wallet ထဲမှာ ပိုက်ဆံ မလုံလောက်တော့ပါဘူး။", alert=True)
+            
+        await event.answer("🎲 Shuffling Matrix Deck...")
+        
+        # နောက်ထပ် ကတ်တစ်ရွက် ထုတ်မယ် (အရင်ကတ်နဲ့ မတူအောင် loop ပတ်ထားမယ်)
+        new_card = random.randint(1, 13)
+        while new_card == base_card:
+            new_card = random.randint(1, 13)
+            
+        card_map = {1: "A", 11: "J", 12: "Q", 13: "K"}
+        base_display = card_map.get(base_card, str(base_card))
+        new_display = card_map.get(new_card, str(new_card))
+        
+        # Win / Lose Matrix Logic တွက်ချက်ခြင်း
+        is_win = False
+        if choice == "HIGH" and new_card > base_card:
+            is_win = True
+        elif choice == "LOW" and new_card < base_card:
+            is_win = True
+            
+        mention = await get_html_mention(event, target_user_id)
+        
+        if is_win:
+            # နိုင်ရင် လောင်းကြေးအတိုင်း Profit ပေါင်းပေးမယ် (1x နိုင်ကြေး)
+            await users_catcher_col.update_one({"user_id": target_user_id}, {"$inc": {"wallet_balance": bet_amount}})
+            status_text = f"🎉 <b>{f('CHALLENGE WON')}!!! ခန့်မှန်းချက် မှန်ကန်ပါတယ်။ (+{bet_amount:,} MMK)</b>"
+        else:
+            # ရှုံးရင် Wallet ထဲက နှုတ်မယ်
+            await users_catcher_col.update_one({"user_id": target_user_id}, {"$inc": {"wallet_balance": -bet_amount}})
+            status_text = f"💸 <b>{f('CHALLENGE LOST')}... ခန့်မှန်းချက် မှားယွင်းသွားပါတယ်။ (-{bet_amount:,} MMK)</b>"
+            
+        result_text = (
+            f"🃏 <b>{f('HI-LO CASINO MATRIX RESULTS')}</b>\n"
+            f"⚡ PARADOX Family: BOD ⚡\n"
+            f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
+            f"👤 <b>Player:</b> {mention}\n"
+            f"💵 <b>Bet Stake:</b> <code>{bet_amount:,} MMK</code>\n\n"
+            f"🎴 ယခင်ပြထားတဲ့ကတ်: <b>[ {base_display} ]</b>\n"
+            f"🎲 နောက်ထွက်လာတဲ့ကတ်: ✨ <b>[ {new_display} ]</b> ✨\n"
+            f"🎯 မင်းရွေးချယ်ခဲ့တာ: <code>{choice}</code>\n\n"
+            f"{status_text}\n\n"
+            f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+        )
+        await event.edit(result_text, parse_mode='html')
+
+
 # ==========================================
 # 📊 8. PROFILE SYSTEM CORE (/profile)
 # ==========================================
@@ -695,9 +764,9 @@ async def profile_handler(event):
                 counts[r_name] = counts.get(r_name, 0) + 1
 
     profile_text = (
-        f"🌌 <b>{f('SOVEREIGN AGENT DOSSIER')}</b>\n"
+        f"🌌 <b>{f('BOD AGENT DOSSIER')}</b>\n"
         f"👤 <b>{f('Agent Identity')}:</b> {mention}\n"
-        f"🔩 <b>{f('System Core ID')}:</b> <code>{user_id}</code>\n"
+        f"🔩 <b>{f('User Core ID')}:</b> <code>{user_id}</code>\n"
         f"🪙 <b>{f('Asset Liquid Capital')}:</b> <code>{balance} MMK</code>\n"
         f"🎒 <b>{f('Gross Captured Units')}:</b> <code>{total_caught} Units</code>\n"
         f"🛒 <b>{f('On Marketplace')}:</b> <code>{market_count} Cards</code>\n"
@@ -1035,50 +1104,97 @@ async def trade_proposal_handler(event):
 async def slot_game_handler(event):
     user_id = event.sender_id
     bet = int(event.pattern_match.group(1))
-    if bet <= 0: return await event.reply("❌ <b>လောင်းကြေးက အနည်းဆုံး 1 MMK ရှိရပါမယ် Bro!</b>", parse_mode='html')
+    
+    if bet <= 0: 
+        return await event.reply("❌ <b>လောင်းကြေးက အနည်းဆုံး 1 MMK ရှိရပါမယ် Bro!</b>", parse_mode='html')
         
     user_doc = await users_catcher_col.find_one({"user_id": user_id})
     balance = user_doc.get("wallet_balance", 0) if user_doc else 0
     if balance < bet:
         return await event.reply(f"❌ <b>သင့်ထံတွင် ငွေမလုံလောက်ပါဘူး! လက်ကျန်: {balance} MMK</b>", parse_mode='html')
         
+    # Wallet ထဲက လောင်းကြေးကို အရင်နှုတ်မယ်
     await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": -bet}})
     mention = await get_html_mention(event, user_id)
     
-    anim_msg = await event.reply(f"🎰 {mention} <b>စက်ဝန်းလည်ပတ်နေပါပြီ... ✨</b>\n\n[ 🎰 | 🎰 | 🎰 ]\nလည်ပတ်နေဆဲ... ⏳", parse_mode='html')
-    await asyncio.sleep(0.6)
-    await bot1.edit_message(event.chat_id, anim_msg.id, f"🎰 {mention} <b>စက်ဝန်းလည်ပတ်နေပါပြီ... ✨</b>\n\n[ 🍋 | 💎 | 🍒 ]\nစောင့်ဆိုင်းနေဆဲ... ⏳", parse_mode='html')
-    await asyncio.sleep(0.6)
+    # ⚡ 7-Reel Spinning First Frame
+    anim_msg = await event.reply(
+        f"🎰 {mention} <b>{f('SPINNING THE QUANTUM REELS')}... ⚡</b>\n\n"
+        f"<b>[ 🎰 | 🎰 | 🎰 | 🎰 | 🎰 | 🎰 | 🎰 ]</b>\n\n"
+        f"<i>Rerolling Matrix Clusters... ⏳</i>", 
+        parse_mode='html'
+    )
     
-    symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣"]
-    res_syms = random.choices(symbols, k=3)
+    # Fast Mid-Roll Blend (မြန်မြန်ဆန်ဆန် UI ပြောင်းလဲမှုပေးဖို့)
+    symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣", "⭐", "🔔"]
+    await asyncio.sleep(0.4)
+    
+    mid_syms = random.choices(symbols, k=7)
+    mid_str = " | ".join(mid_syms)
+    await bot1.edit_message(
+        event.chat_id, anim_msg.id, 
+        f"🎰 {mention} <b>{f('REELS ARE LOCKING IN')}... 🔥</b>\n\n"
+        f"<b>[ {mid_str} ]</b>\n\n"
+        f"<i>Decelerating Matrix Engine... ⚡</i>", 
+        parse_mode='html'
+    )
+    
+    await asyncio.sleep(0.4)
+    
+    # 🎯 Final Result Generation
+    res_syms = random.choices(symbols, k=7)
+    res_str = " | ".join(res_syms)
+    
+    # Symbol တွေရဲ့ ကျရောက်တဲ့ အကြိမ်ရေကို တွက်ချက်ခြင်း Matrix Logic
+    from collections import Counter
+    counts = Counter(res_syms)
+    most_common_sym, max_count = counts.most_common(1)[0]
+    
     win_amount = 0
     status_text = ""
     
-    if res_syms[0] == res_syms[1] == res_syms[2]:
-        if res_syms[0] == "7️⃣":
-            win_amount = bet * 10
-            status_text = f"🎉 <b>JACKPOT TRIPLE 7️⃣!!! နိုင်ပွဲအကြီးကြီး ရရှိသွားပါပြီ! (+{win_amount} MMK)</b>"
+    # 📊 7-REEL REWARD MATRIX SCALE
+    if max_count == 7:
+        if most_common_sym == "7️⃣":
+            win_amount = bet * 77
+            status_text = f"👑 <b>{f('GOD-TIER JACKPOT 7777777')}!!! (+{win_amount:,} MMK)</b>"
         else:
-            win_amount = bet * 5
-            status_text = f"🔥 <b>TRIPLE MATCH!!! ပေါက်မဲအမျိုးအစား တူညီသွားပါပြီ! (+{win_amount} MMK)</b>"
-    elif res_syms[0] == res_syms[1] or res_syms[1] == res_syms[2] or res_syms[0] == res_syms[2]:
-        win_amount = int(bet * 1.5)
-        status_text = f"✨ <b>DOUBLE MATCH!! နှစ်ခုတူညီသွားပါတယ်! (+{win_amount} MMK)</b>"
+            win_amount = bet * 50
+            status_text = f"🔥 <b>{f('ULTIMATE SYNC MATCH')} 7/7!!! (+{win_amount:,} MMK)</b>"
+    elif max_count == 6:
+        win_amount = bet * 25
+        status_text = f"💎 <b>{f('MEGA MULTI-MATCH')} (6x {most_common_sym})!!! (+{win_amount:,} MMK)</b>"
+    elif max_count == 5:
+        win_amount = bet * 12
+        status_text = f"⚡ <b>{f('SUPER MULTI-MATCH')} (5x {most_common_sym})!! (+{win_amount:,} MMK)</b>"
+    elif max_count == 4:
+        win_amount = bet * 5
+        status_text = f"✨ <b>{f('QUADRA SYNC MATCH')} (4x {most_common_sym})! (+{win_amount:,} MMK)</b>"
+    elif max_count == 3:
+        win_amount = int(bet * 2.5)
+        status_text = f"🌟 <b>{f('TRIPLE COMBINATION')} (3x {most_common_sym}). (+{win_amount:,} MMK)</b>"
+    elif max_count == 2:
+        pairs = len([k for k, v in counts.items() if v >= 2])
+        if pairs >= 2:
+            win_amount = int(bet * 1.5)
+            status_text = f"🎫 <b>{f('DOUBLE PAIRS SPLIT')}! (+{win_amount:,} MMK)</b>"
+        else:
+            win_amount = int(bet * 1.0)  # Capital Back / သရေ
+            status_text = f"🪵 <b>{f('SINGLE PAIR MATCH')} (2x {most_common_sym}). Stake Saved! (+{win_amount:,} MMK)</b>"
     else:
-        status_text = f"💸 <b>မကံကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet} MMK)</b>"
+        status_text = f"💸 <b>မကံကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
         
     if win_amount > 0:
         await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": win_amount}})
         
+    # Premium Finished UI
     final_text = (
-        f"🎰 <b>SLOT CASINO MACHINE MATRIX</b>\n"
-        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+        f"🎰 <b>{f('BOD ULTRA 7-REEL SLOT')}</b>\n"
+        f"⚡ PARADOX Family: BOD ⚡\n"
         f"👤 <b>Player:</b> {mention}\n"
-        f"💵 <b>Bet Amount:</b> <code>{bet} MMK</code>\n\n"
-        f"🎰 <b>[ {res_syms[0]} | {res_syms[1]} | {res_syms[2]} ]</b>\n\n"
-        f"{status_text}\n"
-        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+        f"💵 <b>Bet Amount:</b> <code>{bet:,} MMK</code>\n\n"
+        f"🎰 <b>[ {res_str} ]</b>\n\n"
+        f"{status_text}"
     )
     await bot1.edit_message(event.chat_id, anim_msg.id, final_text, parse_mode='html')
 
@@ -1265,22 +1381,36 @@ async def hilo_game_handler(event):
     user_id = event.sender_id
     bet_amount = int(event.pattern_match.group(1))
     
-    # ၁ မှ ၁၃ အထိ ကတ်နံပါတ် သတ်မှတ်ခြင်း (ဥပမာ: 11=J, 12=Q, 13=K)
+    if bet_amount <= 0:
+        return await event.reply("❌ <b>လောင်းကြေးက အနည်းဆုံး 1 MMK ရှိရပါမယ် Bro!</b>", parse_mode='html')
+        
+    user_doc = await users_catcher_col.find_one({"user_id": user_id})
+    balance = user_doc.get("wallet_balance", 0) if user_doc else 0
+    if balance < bet_amount:
+        return await event.reply(f"❌ <b>သင့်ထံတွင် ငွေမလုံလောက်ပါဘူး! လက်ကျန်: {balance:,} MMK</b>", parse_mode='html')
+        
+    # ၂ မှ ၁၂ ထိ ကျပန်းကတ်ထုတ်မယ် (A = 1, J = 11, Q = 12, K = 13 မို့လို့ အလယ်ကတ်တွေကို အခြေခံပေးထားတာပါ)
     base_card = random.randint(2, 12) 
     
-    # UI ဆောက်ခြင်း
+    card_map = {11: "J", 12: "Q", 13: "K"}
+    base_display = card_map.get(base_card, str(base_card))
+    
+    # ⚡ ခလုတ်ဒေတာကို split('_') နဲ့ ကိုက်ညီအောင် အောက်ခံမျဉ်း ပြောင်းလဲထားပြီး ကစားသူရဲ့ ID ပါ ထည့်ထားပါတယ်
     buttons = [
         [
-            Button.inline("🔼 HIGHER (ပိုကြီးမယ်)", data=f"hilo:HIGH:{base_card}:{bet_amount}"),
-            Button.inline("🔽 LOWER (ပိုငယ်မယ်)", data=f"hilo:LOW:{base_card}:{bet_amount}")
+            Button.inline("🔼 HIGHER (ပိုကြီးမယ်)", data=f"hilo_HIGH_{base_card}_{bet_amount}_{user_id}"),
+            Button.inline("🔽 LOWER (ပိုငယ်မယ်)", data=f"hilo_LOW_{base_card}_{bet_amount}_{user_id}")
         ]
     ]
     
     await event.reply(
-        f"🃏 <b>{f('HI-LO CASINO MATRIX')}</b>\n\n"
-        f"💵 လောင်းကြေး: <code>{bet_amount} MMK</code>\n"
-        f"🎴 လက်ရှိကတ်အမှတ်: ✨ <b>[ {base_card} ]</b> ✨\n\n"
-        f"<blockquote>နောက်ထွက်မည့် ကတ်ပြားသည် <b>[ {base_card} ]</b> ထက် ကြီးမလား ငယ်မလား ခန့်မှန်းပေးပါ Boss! 🔮</blockquote>",
+        f"🃏 <b>{f('HI-LO CASINO MATRIX')}</b>\n"
+        f"⚡ PARADOX Family: BOD ⚡\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
+        f"💵 လောင်းကြေး: <code>{bet_amount:,} MMK</code>\n"
+        f"🎴 လက်ရှိကတ်ပြား: ✨ <b>[ {base_display} ]</b> ✨\n\n"
+        f"<blockquote>နောက်ထွက်မည့် ကတ်ပြားသည် <b>[ {base_display} ]</b> ထက် <b>ပိုကြီးမလား (HIGHER) 🔼</b> ဒါမှမဟုတ် <b>ပိုငယ်မလား (LOWER) 🔽</b> ကို အောက်က Button နဲ့ ခန့်မှန်းပေးပါ Boss! 🔮</blockquote>\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡",
         buttons=buttons, parse_mode='html'
     )
 
@@ -1395,7 +1525,7 @@ async def public_help_handler(event):
 @bot1.on(events.NewMessage(pattern=r'^/game(?:@\w+)?$'))
 async def games_panel_handler(event):
     games_text = (
-        f"🎮 <b>{f('SOVEREIGN CASINO HUB / ဂိမ်းမနူး')}</b>\n"
+        f"🎮 <b>{f('BOD CASINO HUB / ဂိမ်းမီနူး')}</b>\n"
         f"⚡PARADOX Family:BOD⚡\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
         f"🎲 <b>{f('AVAILABLE CASINO GAMES / ကစားနိုင်သော ဂိမ်းများ')}:</b>\n\n"
