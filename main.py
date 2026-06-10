@@ -729,14 +729,12 @@ async def unified_callback_handler(event):
         result_text = (
             f"🃏 <b>{f('HI-LO CASINO MATRIX RESULTS')}</b>\n"
             f"⚡ PARADOX Family: BOD ⚡\n"
-            f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
             f"👤 <b>Player:</b> {mention}\n"
             f"💵 <b>Bet Stake:</b> <code>{bet_amount:,} MMK</code>\n\n"
             f"🎴 ယခင်ပြထားတဲ့ကတ်: <b>[ {base_display} ]</b>\n"
             f"🎲 နောက်ထွက်လာတဲ့ကတ်: ✨ <b>[ {new_display} ]</b> ✨\n"
             f"🎯 မင်းရွေးချယ်ခဲ့တာ: <code>{choice}</code>\n\n"
-            f"{status_text}\n\n"
-            f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+            f"{status_text}"
         )
         await event.edit(result_text, parse_mode='html')
 
@@ -1176,13 +1174,13 @@ async def slot_game_handler(event):
     elif max_count == 2:
         pairs = len([k for k, v in counts.items() if v >= 2])
         if pairs >= 2:
-            win_amount = int(bet * 1.5)
+            win_amount = int(bet * 0)
             status_text = f"🎫 <b>{f('DOUBLE PAIRS SPLIT')}! (+{win_amount:,} MMK)</b>"
         else:
             win_amount = int(bet * 1.0)  # Capital Back / သရေ
             status_text = f"🪵 <b>{f('SINGLE PAIR MATCH')} (2x {most_common_sym}). Stake Saved! (+{win_amount:,} MMK)</b>"
     else:
-        status_text = f"💸 <b>မကံကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
+        status_text = f"💸 <b>ကံမကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
         
     if win_amount > 0:
         await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": win_amount}})
@@ -1203,7 +1201,7 @@ async def create_cardgame_lobby(event):
     if event.is_private: return
     chat_id = event.chat_id
     bet = int(event.pattern_match.group(1))
-    if bet < 10: return await event.reply("❌ <b>အနည်းဆုံးလောင်းကြေး 10 MMK ရှိရပါမယ် Boss!</b>", parse_mode='html')
+    if bet < 100: return await event.reply("❌ <b>အနည်းဆုံးလောင်းကြေး 100 MMK ရှိရပါမယ် Boss!</b>", parse_mode='html')
     if chat_id in active_card_games: return await event.reply("⚠️ <b>ဒီဂရုထဲမှာ အခြားပွဲစဉ်တစ်ခု လက်ရှိလည်ပတ်နေဆဲ ဖြစ်ပါတယ်။</b>", parse_mode='html')
         
     host_id = event.sender_id
