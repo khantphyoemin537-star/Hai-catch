@@ -251,12 +251,15 @@ async def who_reveal_handler(event):
     reveal_text = (
         f"🔍 <b>{f('TARGET DATA CLUES FOUND / သဲလွန်စ ရပြီ')}</b>\n"
         f"🌐 <b>{f('Universe Domain')}:</b> <code>{spawn_data['category']}</code>\n"
-        f"🌟 <b>{f('Rarity Class')}:</b> {spawn_data['rarity']}\n\n"
+        f"🌟 <b>{f('Rarity Class')}:</b> {spawn_data['rarity']}\n"
         f"🔥 <b>{f('CAPTURE PAYLOAD / အပိုင်ဖမ်းယူရန် ကုဒ်')}:</b>\n"
         f"<code>/catch {spawn_data['name']}</code>\n"
         f"<blockquote><b>{f('Hurry Up')}!</b> အပေါ်က /catch xxx အမြန်ဆုံး Copy ယူပြီး ဦးအောင် ဖမ်းလိုက်တော့ Bestie!</blockquote>"
     )
-reply = await event.reply(reveal_text, parse_mode='html')
+    
+    # ဒီလိုင်းရဲ့ အရှေ့ကို Space သွင်းပေးလိုက်တာနဲ့ အဆင်ပြေသွားပါပြီ
+    reply = await event.reply(reveal_text, parse_mode='html')
+
 # ==========================================
 # 🎯 5. CLAIM ENGINE CORE (/catch)
 # ==========================================
