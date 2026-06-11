@@ -1071,7 +1071,7 @@ async def slot_game_handler(event):
     anim_msg = await event.reply(
         f"🎰 {mention} <b>{f('SPINNING THE QUANTUM REELS')}... ⚡</b>\n\n<b>[ 🎰 | 🎰 | 🎰 | 🎰 | 🎰 | 🎰 | 🎰 ]</b>\n\n<i>Rerolling Matrix Clusters... ⏳</i>", parse_mode='html'
     )
-    symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣", "⭐", "🔔"]
+    symbols = ["​🐯", "​🦁", "​🐃", "​🦓", "🦀", "🐄", "🦅"]
     await asyncio.sleep(0.6)
     mid_syms = random.choices(symbols, k=7)
     mid_str = " | ".join(mid_syms)
@@ -1089,8 +1089,8 @@ async def slot_game_handler(event):
     win_amount = 0
     
     if max_count == 7:
-        win_amount = bet * 77 if most_common_sym == "7️⃣" else bet * 50
-        status_text = f"👑 <b>{f('GOD-TIER JACKPOT')}!!! (+{win_amount:,} MMK)</b>"
+        win_amount = bet * 77 if most_common_sym == "​🐃" else bet * 50
+        status_text = f"🥶 <b>{f('GOD-TIER JACKPOT')}!!! (+{win_amount:,} MMK)</b>"
     elif max_count == 6:
         win_amount = bet * 25
         status_text = f"💎 <b>{f('MEGA MULTI-MATCH')}!!! (+{win_amount:,} MMK)</b>"
@@ -1099,19 +1099,19 @@ async def slot_game_handler(event):
         status_text = f"⚡ <b>{f('SUPER MULTI-MATCH')}!! (+{win_amount:,} MMK)</b>"
     elif max_count == 4:
         win_amount = bet * 5
-        status_text = f"✨ <b>{f('QUADRA SYNC MATCH')}! (+{win_amount:,} MMK)</b>"
+        status_text = f"😲 <b>{f('QUADRA SYNC MATCH')}! (+{win_amount:,} MMK)</b>"
     elif max_count == 3:
         win_amount = int(bet * 2.5)
-        status_text = f"🌟 <b>{f('TRIPLE COMBINATION')}. (+{win_amount:,} MMK)</b>"
+        status_text = f"🤤 <b>{f('TRIPLE COMBINATION')}. (+{win_amount:,} MMK)</b>"
     elif max_count == 2:
         win_amount = int(bet * .5)
-        status_text = f"🪵 <b>{f('SINGLE PAIR MATCH')}. Stake Saved! (+{win_amount:,} MMK)</b>"
-    else: status_text = f"💸 <b>ကံမကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
+        status_text = f"🤣 <b>{f('SINGLE PAIR MATCH')}. Stake Saved! (+{win_amount:,} MMK)</b>"
+    else: status_text = f"🤪 <b>ကံမကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
         
     if win_amount > 0: await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": win_amount}})
         
     final_text = (
-        f"🎰 <b>{f('BOD's အပေးကြမ်း 7ခုတန်း စလော့')}</b>\n⚡ PARADOX Family: BOD ⚡\n"
+        f"🎰 <b>{f('BOD အပေးကြမ်း 7ခုတန်း စလော့')}</b>\n⚡ PARADOX Family: BOD ⚡\n"
         f"👤 <b>Player:</b> {mention}\n💵 <b>Bet Amount:</b> <code>{bet:,} MMK</code>\n\n🎰 <b>[ {res_str} ]</b>\n\n{status_text}"
     )
     await bot1.edit_message(event.chat_id, anim_msg.id, final_text, parse_mode='html')
