@@ -547,7 +547,10 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
     output_text = f"🎒 {mention} <b>{f('s VAULT COLLECTION')}</b>\n"
     output_text += f"📑 <b>Page:</b> <code>{page}/{total_pages}</code> | <b>Total Unique:</b> <code>{len(lines)}</code>\n\n"
     for l in page_lines: output_text += l + "\n"
-    output_text += f"\n⚡ ━━━━━⚡"
+    output_text += f"\n⚡ ━━━━━⚡\n"
+    
+    # 📌 [NEW FEATURE] အောက်ခြေမှာ /fav ထားဖို့ လမ်းညွှန်စာသားကို Blockquote နဲ့ ထင်းခနဲပေါ်အောင် ထည့်သွင်းခြင်း
+    output_text += f"<blockquote>💡 <code>/fav [CHxxxxx]</code> ဆိုပြီး favorite ထားနိုင်ပါတယ် ညီ!</blockquote>"
     
     buttons = []
     nav_buttons = []
@@ -555,10 +558,18 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
     if page < total_pages: nav_buttons.append(Button.inline("Next ➡️", data=f"hai_{page+1}_{user_id}"))
     if nav_buttons: buttons.append(nav_buttons)
     
+    if not buttons: buttons = None
+    
     fav_card_id = user_doc.get("fav_card")
     fav_media = None
-    if fav_card_id:
-        fav_card_data = await characters_base_col.find_one({"char_id": fav_card_id})
+    
+    # 🛠️ [NEW LOGIC] Favorite ကတ် မသတ်မှတ်ထားရင် Vault ထဲက ကတ်တစ်ခုခုကို Random ရွေးပြီး ပုံထုတ်ပြမည့်စနစ်
+    target_display_id = fav_card_id
+    if not target_display_id and owned_ids:
+        target_display_id = random.choice(owned_ids)
+        
+    if target_display_id:
+        fav_card_data = await characters_base_col.find_one({"char_id": target_display_id})
         if fav_card_data:
             try:
                 storage_msg = await client.get_messages(SPECIFIC_CONTROL_GROUP, ids=fav_card_data["storage_msg_id"])
@@ -579,11 +590,10 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
         try: await client.send_message(chat_id, f"❌ <b>Vault Display Error:</b> <code>{escape_html(str(main_err))}</code>", parse_mode='html')
         except: pass
 
-# ✨ ဒီမှာပါ ဘရို မပျောက်တော့ဘူး! /hai ရိုက်ရင် အထက်က Engine ကို လှမ်းခေါ်ပေးမယ့် Command Trigger ဖြစ်ပါတယ်
 @bot1.on(events.NewMessage(pattern=r'^/hai(?:@\w+)?$'))
 async def display_harem_list(event):
     await send_paginated_harem(bot1, event.chat_id, event.sender_id, page=1)
-
+    
 # ==========================================
 # 🗛️ 7. UNIFIED CALLBACK QUERY MATRIX PROCESSOR
 # ==========================================
@@ -961,9 +971,9 @@ async def check_points_balance(event):
     user_doc = await users_catcher_col.find_one({"user_id": event.sender_id})
     balance = user_doc.get("wallet_balance", 0) if user_doc else 0
     await event.reply(
-        f"💳 <b>{f('SOVEREIGN WALLET LEDGER / ရမှတ်လက်ကျန်')}</b>\n"
-        f"💰 <b>{f('Current Balance / လက်ရှိလက်ကျန်ငွေဗဟိုတန်ဖိုး')}:</b>\n"
-        f"<blockquote><code>{balance} MMK</code> 🪙</blockquote>\n"
+        f"💳 <b>{f('Your's Wallet')}</b>\n"
+        f"💰 <b>{f('Current Balance / လက်ရှိလက်ကျန်ငွေတန်ဖိုး')}:</b>\n"
+        f"<blockquote><code>{balance} Myanmar Kyats</code> 🪙</blockquote>\n"
         f"⚡ ━━━━━⚡", parse_mode='html'
     )
 
@@ -1063,14 +1073,14 @@ async def slot_game_handler(event):
         f"🎰 {mention} <b>{f('SPINNING THE QUANTUM REELS')}... ⚡</b>\n\n<b>[ 🎰 | 🎰 | 🎰 | 🎰 | 🎰 | 🎰 | 🎰 ]</b>\n\n<i>Rerolling Matrix Clusters... ⏳</i>", parse_mode='html'
     )
     symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣", "⭐", "🔔"]
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.6)
     mid_syms = random.choices(symbols, k=7)
     mid_str = " | ".join(mid_syms)
     await bot1.edit_message(
         event.chat_id, anim_msg.id, 
         f"🎰 {mention} <b>{f('REELS ARE LOCKING IN')}... 🔥</b>\n\n<b>[ {mid_str} ]</b>\n\n<i>Decelerating Matrix Engine... ⚡</i>", parse_mode='html'
     )
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.9)
     res_syms = random.choices(symbols, k=7)
     res_str = " | ".join(res_syms)
     
@@ -1095,14 +1105,14 @@ async def slot_game_handler(event):
         win_amount = int(bet * 2.5)
         status_text = f"🌟 <b>{f('TRIPLE COMBINATION')}. (+{win_amount:,} MMK)</b>"
     elif max_count == 2:
-        win_amount = int(bet * 1.0)
+        win_amount = int(bet * .5)
         status_text = f"🪵 <b>{f('SINGLE PAIR MATCH')}. Stake Saved! (+{win_amount:,} MMK)</b>"
     else: status_text = f"💸 <b>ကံမကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
         
     if win_amount > 0: await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": win_amount}})
         
     final_text = (
-        f"🎰 <b>{f('BOD ULTRA 7-REEL SLOT')}</b>\n⚡ PARADOX Family: BOD ⚡\n"
+        f"🎰 <b>{f('BOD's အပေးကြမ်း 7ခုတန်း စလော့')}</b>\n⚡ PARADOX Family: BOD ⚡\n"
         f"👤 <b>Player:</b> {mention}\n💵 <b>Bet Amount:</b> <code>{bet:,} MMK</code>\n\n🎰 <b>[ {res_str} ]</b>\n\n{status_text}"
     )
     await bot1.edit_message(event.chat_id, anim_msg.id, final_text, parse_mode='html')
@@ -1130,11 +1140,11 @@ async def create_cardgame_lobby(event):
     active_card_games[chat_id] = {"host_id": host_id, "bet": bet, "players": {host_id: fullname}, "status": "lobby", "msg_id": None}
     
     lobby_text = (
-        f"🃏 <b>HIGH CARD DRAW - MULTIPLAYER CASINO</b> 🃏\n⚡PARADOX Family:BOD⚡\n"
+        f"🃏 <b>CARD နံပါတ်ကြီးသူနိုင်မယ့် - MULTIPLAYER CASINO</b> 🃏\n⚡PARADOX Family:BOD⚡\n"
         f"👑 <b>Host:</b> {host_mention}\n💵 <b>Bet Stake:</b> <code>{bet} MMK</code>\n\n👥 <b>Joined Players (1):</b>\n 1. {host_mention} (Host)\n\n"
-        f"📌 <i>အနည်းဆုံး ၂ ယောက်ပြည့်လျှင် Host က <code>/startgame</code> ဟုရိုက်၍ စတင်နိုင်ပါသည်။</i>"
+        f"📌 <i>အနည်းဆုံး ၂ ယောက်ပြည့်လျှင် Host က <code>/startgame</code> (ထိလိုက်ရုံ​နဲ့COPYယူနိုင်) ဟုရိုက်၍ စတင်နိုင်ပါသည်။</i>"
     )
-    buttons = [[Button.inline("🃏 Join Match", data=f"cardjoin_{chat_id}")]]
+    buttons = [[Button.inline("🃏ပါမယ့်သူဆိုနှိပ်လိုက်", data=f"cardjoin_{chat_id}")]]
     msg = await event.reply(lobby_text, parse_mode='html', buttons=buttons)
     active_card_games[chat_id]["msg_id"] = msg.id
 
@@ -1168,8 +1178,8 @@ async def start_cardgame_handler(event):
         p_mention = f"<a href='tg://user?id={pid}'><b>{escape_html(data['name'])}</b></a>"
         win_tag = " 🏆 (WINNER)" if pid in winners else ""
         result_text += f"🃏 {p_mention} drew card: <b>[{data['score']}/10]</b>{win_tag}\n"
-    result_text += f"\n⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-    if len(winners) > 1: result_text += f"🤝 <b>သရေကျသဖြင့် ပတ်သက်သူများ တစ်ဦးလျှင် <code>{split_prize} MMK</code> စီ ရရှိသွားပါပြီ!</b>"
+    result_text += f"😎💰\n"
+    if len(winners) > 1: result_text += f"🤝 <b>သရေကျသဖြင့် ပါဝင်သူများ တစ်ဦးလျှင် <code>{split_prize} Myanmar Kyats</code> စီ ရရှိသွားပါပြီ!</b>"
     else:
         winner_mention = f"<a href='tg://user?id={winners[0]}'><b>{escape_html(results[winners[0]]['name'])}</b></a>"
         result_text += f"🎉 <b>{winner_mention} ကံထူးပြီး စုစုပေါင်းဆုကြေး <code>{pool} MMK</code> အားလုံးကို သိမ်းပိုက်သွားပါပြီ!</b>"
@@ -1204,7 +1214,7 @@ async def coin_flip_handler(event):
     if not user_data or user_data.get("wallet_balance", 0) < bet_amount: return await event.reply("❌ <b>လောင်းကြေးမလောက်ပါဘူး Boss!</b>", parse_mode='html')
     
     animation_msg = await event.reply("🪙 <b>ဒင်္ဂါးပြားကို လေထဲမြှောက်လိုက်ပါပြီ...</b>\n[ 🔄 လည်နေသည် ]", parse_mode='html')
-    await asyncio.sleep(1)
+    await asyncio.sleep(3)
     
     result = random.choice(["ခေါင်း", "ပန်း"])
     mention = await get_html_mention(event, user_id)
@@ -1225,7 +1235,7 @@ async def dice_game_handler(event):
     if not user_data or user_data.get("wallet_balance", 0) < bet_amount: return await event.reply("❌ <b>လောင်းကြေးမလောက်ပါဘူး Boss!</b>", parse_mode='html')
 
     dice_msg = await bot1.send_message(chat_id, file=types.InputMediaDice(emoticon="🎲"))
-    await asyncio.sleep(4)
+    await asyncio.sleep(2)
     dice_value = dice_msg.media.value
     
     if dice_value >= 4:  
@@ -1249,8 +1259,8 @@ async def hilo_game_handler(event):
     card_map = {11: "J", 12: "Q", 13: "K"}
     base_display = card_map.get(base_card, str(base_card))
     buttons = [[
-        Button.inline("🔼 HIGHER (ပိုကြီးမယ်)", data=f"hilo_HIGH_{base_card}_{bet_amount}_{user_id}"),
-        Button.inline("🔽 LOWER (ပိုငယ်မယ်)", data=f"hilo_LOW_{base_card}_{bet_amount}_{user_id}")
+        Button.inline("🔼 နောက်Cardက (ပိုကြီးမယ်)", data=f"hilo_HIGH_{base_card}_{bet_amount}_{user_id}"),
+        Button.inline("🔽 နောက်Cardက (ပိုငယ်မယ်)", data=f"hilo_LOW_{base_card}_{bet_amount}_{user_id}")
     ]]
     await event.reply(
         f"🃏 <b>{f('HI-LO CASINO MATRIX')}</b>\n⚡ PARADOX Family: BOD ⚡\n⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
@@ -1278,7 +1288,7 @@ async def daily_bounty_handler(event):
         rem_time = int(86400 - (current_time - last_daily))
         return await event.reply(f"⏳ {mention} <b>{f(' cooldown မပြည့်သေးပါ!')} ရယူရန် {str(timedelta(seconds=rem_time))} နာရီ လိုအပ်ပါသေးတယ်။</b>", parse_mode='html')
         
-    bonus = random.randint(300, 800)
+    bonus = random.randint(3000, 70000)
     await users_catcher_col.update_one(
         {"user_id": user_id},
         {"$inc": {"wallet_balance": bonus}, "$set": {"daily_cooldown": current_time, "fullname": mention}}
@@ -1287,13 +1297,13 @@ async def daily_bounty_handler(event):
 
 @bot1.on(events.NewMessage(pattern=r'^/richest(?:@\w+)?$'))
 async def system_richest_leaderboard(event):
-    """[CMD 4] စနစ်အတွင်း ငွေအများဆုံး ပိုင်ဆိုင်ထားသော သူဌေးကြီး ၁၀ ဦး စာရင်း"""
+    """[CMD 4] BODကာစီနိုလောကအတွင်း ငွေအများဆုံး ပိုင်ဆိုင်ထားသော သူဌေး 10 ဦး စာရင်း"""
     cursor = users_catcher_col.find({"wallet_balance": {"$gt": 0}}).sort("wallet_balance", -1).limit(10)
     richest_users = await cursor.to_list(length=10)
     
     if not richest_users: return await event.reply(f"🏆 <b>{f('Leaderboard matrix data clear ဖြစ်နေပါတယ် Bro!')}</b>", parse_mode='html')
         
-    msg = f"💰 <b>{f('BOD FINANCEMENT ELITE - TOP 10 RICHEST players')}</b>\n⚡ ━━━━━⚡\n"
+    msg = f"💰 <b>{f('BODကာစီနိုနဲ့Cardဖမ်းလောကရဲ့ - TOP 10 RICHEST players')}</b>\n⚡ ━━━━━⚡\n"
     for i, u in enumerate(richest_users):
         bal = u.get("wallet_balance", 0)
         user_display = u.get('fullname') or f"User {u['user_id']}"
@@ -1381,7 +1391,7 @@ async def text_adventure_hunt_handler(event):
     if current_time - last_hunt < 180:
         return await event.reply(f"⏳ {mention} <b>{f('အမဲလိုက်ထွက်ခြင်း နားပါဦး Bro!')} Cooldown စက္ကန့် {int(180 - (current_time - last_hunt))}s လိုပါသေးသည်။</b>", parse_mode='html')
         
-    earned = random.randint(20, 150)
+    earned = random.randint(200, 80000)
     events_pool = [
         f"🌲 {mention} <b>{f('တောနက်ထဲ စွန့်စားခန်းထွက်ရင်း ရတနာသေတ္တာအဟောင်းကို တွေ့ရှိခဲ့တယ်!')} (+<code>{earned} MMK</code>)</b>",
         f"⚔️ {mention} <b>{f('BOD ရန်သူတော် အဖွဲ့အစည်းကို နှိမ်နင်းပြီး ဘောနပ်စ် ဆုကြေးရရှိခဲ့တယ်!')} (+<code>{earned} MMK</code>)</b>",
