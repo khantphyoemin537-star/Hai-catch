@@ -19,7 +19,7 @@ from telethon import TelegramClient, events, types, Button, errors
 def f(text):
     """Converts regular English text to premium Bold Sans-Serif Unicode Font"""
     normal = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    bold = "𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝑽𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝒍𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵"
+    bold = "𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣0123456789"
     trans = str.maketrans(normal, bold)
     return text.translate(trans)
 
@@ -955,7 +955,7 @@ async def global_top_handler(event):
     
     if not top_users: return await event.reply(f"🏆 <b>{f('Global Leaderboard မှာ စာရင်းမရှိသေးပါဘူး Bro!')}</b>", parse_mode='html')
         
-    msg = f"🌐 <b>{f('GLOBAL TOP 10 HUNTERS')}</b>\n⚡ ━━━━━⚡\n"
+    msg = f"🌐 <b>{f('GLOBAL TOP 10 HUNTERS')}</b>\n"
     for i, u in enumerate(top_users):
         count = u.get("total_caught", 0)
         user_display = u.get('fullname') or f"User {u['user_id']}"
@@ -971,9 +971,9 @@ async def check_points_balance(event):
     user_doc = await users_catcher_col.find_one({"user_id": event.sender_id})
     balance = user_doc.get("wallet_balance", 0) if user_doc else 0
     await event.reply(
-        f"💰 <b>{f('Your's Current Balance / လက်ရှိလက်ကျန်ငွေတန်ဖိုး')}:</b>\n"
+        f"💰 <b>{f('Your Current Balance / လက်ရှိလက်ကျန်ငွေတန်ဖိုး')}:</b>\n"
         f"<blockquote><code>{balance} Myanmar Kyats</code> 🪙</blockquote>\n"
-        f"/game", parse_mode='html'
+        f"ဂိမ်းများကစားရန်➡ /game", parse_mode='html'
     )
 
 # ==========================================
