@@ -491,7 +491,23 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
             
     owned_ids = list(harem_counts.keys())
     db_chars = await characters_base_col.find({"char_id": {"$in": owned_ids}}).to_list(length=None)
-    db_chars = sorted(db_chars, key=lambda x: (x.get("rarity", ""), x.get("name", "")))
+    
+    # Weight System (Legendary ကို ထိပ်ဆုံးပို့ပြီး Common ကို အောက်ဆုံးထားရန်)
+    def get_rarity_weight(rarity_str):
+        rarity_str = rarity_str.upper()
+        if "LEGENDARY" in rarity_str: return 6
+        if "LIMITED" in rarity_str: return 5
+        if "MYTHIC" in rarity_str: return 4
+        if "EPIC" in rarity_str: return 3
+        if "RARE" in rarity_str: return 2
+        if "COMMON" in rarity_str: return 1
+        return 0
+
+    # Rarity အမြင့်မှအနည်းစီပြီး တူပါက နာမည်အလိုက် A-Z ပြန်စီခြင်း
+    db_chars = sorted(
+        db_chars, 
+        key=lambda x: (-get_rarity_weight(x.get("rarity", "")), x.get("name", "").lower())
+    )
     
     lines = []
     for card in db_chars:
@@ -499,10 +515,18 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
         counts = harem_counts[cid]
         normal_qty = counts["normal"]
         market_qty = counts["market"]
-        if normal_qty > 0 and market_qty > 0: status_str = f"<b>(x{normal_qty} | {market_qty} 🛒 {f('Market')})</b>"
-        elif market_qty > 0: status_str = f"<b>({market_qty} 🛒 {f('Market')})</b>"
+        
+        if normal_qty > 0 and market_qty > 0: status_str = f"<b>(x{normal_qty} | {market_qty} 🛒)</b>"
+        elif market_qty > 0: status_str = f"<b>({market_qty} 🛒)</b>"
         else: status_str = f"<b>(x{normal_qty})</b>"
-        lines.append(f" ├─➩ {card['name']} — [<code>{cid}</code>] {status_str} \n   └─✧ {card.get('rarity', '')}")
+        
+        rarity_text = card.get("rarity", "")
+        emoji = rarity_text.split()[0] if rarity_text else "•"
+        series_name = card.get("category", "Unknown Series")
+        
+        escaped_name = escape_html(card['name'])
+        escaped_series = escape_html(series_name)
+        lines.append(f" {emoji} <b>{escaped_name}</b> (<i>{escaped_series}</i>) — [<code>{cid}</code>] {status_str}")
         
     per_page = 7
     total_pages = (len(lines) + per_page - 1) // per_page
@@ -541,13 +565,21 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
                 if storage_msg and storage_msg.media: fav_media = storage_msg.media
             except: pass
             
-    if edit_msg_id:
-        try: await client.edit_message(chat_id, edit_msg_id, output_text, parse_mode='html', buttons=buttons)
-        except errors.MessageNotModifiedError: pass
-    else:
-        if fav_media: await client.send_message(chat_id, output_text, file=fav_media, parse_mode='html', buttons=buttons)
-        else: await client.send_message(chat_id, output_text, parse_mode='html', buttons=buttons)
+    try:
+        if edit_msg_id:
+            try: await client.edit_message(chat_id, edit_msg_id, output_text, parse_mode='html', buttons=buttons)
+            except errors.MessageNotModifiedError: pass
+        else:
+            if fav_media: 
+                try: await client.send_message(chat_id, output_text, file=fav_media, parse_mode='html', buttons=buttons)
+                except Exception: await client.send_message(chat_id, output_text, parse_mode='html', buttons=buttons)
+            else:
+                await client.send_message(chat_id, output_text, parse_mode='html', buttons=buttons)
+    except Exception as main_err:
+        try: await client.send_message(chat_id, f"❌ <b>Vault Display Error:</b> <code>{escape_html(str(main_err))}</code>", parse_mode='html')
+        except: pass
 
+# ✨ ဒီမှာပါ ဘရို မပျောက်တော့ဘူး! /hai ရိုက်ရင် အထက်က Engine ကို လှမ်းခေါ်ပေးမယ့် Command Trigger ဖြစ်ပါတယ်
 @bot1.on(events.NewMessage(pattern=r'^/hai(?:@\w+)?$'))
 async def display_harem_list(event):
     await send_paginated_harem(bot1, event.chat_id, event.sender_id, page=1)
