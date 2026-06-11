@@ -971,10 +971,9 @@ async def check_points_balance(event):
     user_doc = await users_catcher_col.find_one({"user_id": event.sender_id})
     balance = user_doc.get("wallet_balance", 0) if user_doc else 0
     await event.reply(
-        f"💳 <b>{f('Your's Wallet')}</b>\n"
-        f"💰 <b>{f('Current Balance / လက်ရှိလက်ကျန်ငွေတန်ဖိုး')}:</b>\n"
+        f"💰 <b>{f('Your's Current Balance / လက်ရှိလက်ကျန်ငွေတန်ဖိုး')}:</b>\n"
         f"<blockquote><code>{balance} Myanmar Kyats</code> 🪙</blockquote>\n"
-        f"⚡ ━━━━━⚡", parse_mode='html'
+        f"/game", parse_mode='html'
     )
 
 # ==========================================
