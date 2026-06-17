@@ -14,6 +14,7 @@ from html import escape as escape_html
 from telethon.errors import FloodWaitError
 from telethon import TelegramClient, events, types, Button, errors
 from collections import defaultdict
+from telethon.tl.types import ChannelParticipantsAdmins
 # ==========================================
 # ⚡ PREMIUM MATHEMATICAL BOLD SERIF FONT CONVERTER
 # ==========================================
@@ -43,6 +44,77 @@ async def ensure_user_registered(user_id, fullname):
         },
         upsert=True
     )
+
+async def group_reminder_scheduler():
+    while True:
+        now = time.time()
+        today_str = datetime.date.today().isoformat()
+        
+        # active_group collection ထဲက ဂရုအားလုံးကို ဆွဲထုတ်မယ်
+        async for group_doc in db["active_group"].find({}):
+            
+            # 🔥 ဉာဏ်များတဲ့အကွက်: ဖြစ်နိုင်သမျှ Key နာမည် ၃ မျိုးလုံးကို Auto စစ်ယူမယ်
+            group_id = group_doc.get("group_id") or group_doc.get("chat_id") or group_doc.get("_id")
+            
+            # အကယ်၍ ရလာတဲ့ ID က စာသား (String) ဖြစ်နေရင် Telethon သုံးရလွယ်အောင် Integer ပြောင်းမယ်
+            if not group_id: 
+                continue
+            try:
+                group_id = int(group_id)
+            except ValueError:
+                continue # ID မဟုတ်ရင် ကျော်မယ်
+            
+            # Reminder ဒေတာဘေ့စ်မှာ စစ်ဆေးမယ်
+            group_data = await reminders_col.find_one({"group_id": group_id})
+            
+            if not group_data:
+                group_data = {
+                    "group_id": group_id,
+                    "last_reminder_time": 0,
+                    "is_done": False,
+                    "done_date": today_str
+                }
+                await reminders_col.insert_one(group_data)
+            
+            # ရက်အသစ်ကူးရင် Reset လုပ်မယ်
+            if group_data.get("done_date") != today_str:
+                await reminders_col.update_one(
+                    {"group_id": group_id},
+                    {"$set": {"is_done": False, "done_date": today_str, "last_reminder_time": 0}}
+                )
+                group_data["is_done"] = False
+                group_data["last_reminder_time"] = 0
+            
+            # ၃ နာရီပြည့်ရင် သတိပေးစာ ပို့မယ်
+            if not group_data["is_done"] and (now - group_data["last_reminder_time"] >= 10800):
+                try:
+                    admins_mentions = []
+                    async for admin in bot1.iter_participants(group_id, filter=ChannelParticipantsAdmins):
+                        if not admin.bot:
+                            admins_mentions.append(f"<a href='tg://user?id={admin.id}'>@{admin.first_name}</a>")
+                    
+                    mention_text = " ".join(admins_mentions)
+                    
+                    reminder_text = (
+                        f"🦖 <b>ATTENTION ADMINS!</b> {mention_text}\n\n"
+                        f"🎮 နေ့စဉ် အပျင်းပြေဆော့ဖို့ ပိုက်ဆံစုနိုင်ဖို့ <b>/game</b> ဆော့ရမယ့်အချိန် ရောက်ပါပြီဗျာ။\n"
+                        f"🎁 <b>/daily</b> ရိုက်ပြီး နေ့စဉ်ဆုလာဘ်စုကြေးတွေကိုလည်း မမေ့မလျော့ ဝင်ယူသွားကြပါဦး Boss တို့!\n\n"
+                        f"📌 <b>နားလည်ပြီဆိုရင်</b> အောက်ပါကွန်မန်းကို နှိပ်ပေးပါဦး-\n"
+                        f"🤔 <code>/done</code> ကိုနှိပ် (ဒါဆိုရင် ဒီနေ့အတွက် သတိပေးစာ ထပ်မလာတော့ပါဘူး)\n\n"
+                        f"⚠️ <i>မနှိပ်မချင်း ၃ နာရီတစ်ခါ လာပြောနေမှာ အဟိ။ 😉</i>"
+                    )
+                    
+                    await bot1.send_message(group_id, reminder_text, parse_mode='html')
+                    
+                    await reminders_col.update_one(
+                        {"group_id": group_id},
+                        {"$set": {"last_reminder_time": now}}
+                    )
+                    
+                except Exception as e:
+                    print(f"Error sending reminder to {group_id}: {e}")
+                    
+        await asyncio.sleep(60) # ၁ မိနစ်တစ်ခါ စစ်ဆေးပေးမယ်
 
 # ==========================================
 # 🛡️ FLOOD WAIT PROTECTION ENGINE
@@ -119,7 +191,8 @@ guilds_col = db["guilds_data"]
 
 bot1 = TelegramClient('bot_main_session', APP_ID, APP_HASH)
 active_group_spawns = {} 
-active_card_games = {} 
+active_card_games = {}
+STEALTH_MAU_MODE = False
 spawn_locks = defaultdict(asyncio.Lock) 
 # ==========================================
 # 🌌 GLOBAL BOSS POOL MATRIX (၁၀ ကောင်မှ ၁၅ ကောင် စာရင်း)
@@ -1886,6 +1959,128 @@ async def ghost_spawn_cleaner():
             logging.error(f"Cleaner Error: {e}")
         
         await asyncio.sleep(300) # ၅ မိနစ်တစ်ခါ ပတ်စစ်ပေးမယ်
+# လူသုံးအများဆုံး စာလုံးတွေကိုပဲ Target ထားပြီး MAU ဆွဲစားခြင်း
+@bot1.on(events.NewMessage(pattern=r'(?i)^(play|p|harem|h|vault|v|waifu|w|daily|claim)$'))
+async def stealth_mau_handler(event):
+    user_id = event.sender_id
+    mention = await get_html_mention(event, user_id)
+    # နောက်ကွယ်မှာ User ကို Register လုပ်ပြီး MAU တက်အောင်လုပ်မယ် (စာပြန်စရာမလိုပါ)
+    await ensure_user_registered(user_id, mention)
+# 🚨 OWNER ONLY - STEALTH CONTROLLER
+@bot1.on(events.NewMessage(pattern=r'^/stealth(?:\s+(on|off))?$'))
+async def toggle_stealth(event):
+    global STEALTH_MAU_MODE
+    if event.sender_id != OWNER_ID: return  # Owner မှလွဲ၍ မည်သူမျှ သုံးခွင့်မရှိစေရ
+    
+    args = event.pattern_match.group(1)
+    
+    # အကယ်၍ /stealth လို့ပဲ ရိုက်ရင် လက်ရှိ Status ကို ပြပေးမယ်
+    if not args:
+        status = "🟢 ACTIVE (ဖွင့်ထားဆဲ)" if STEALTH_MAU_MODE else "🔴 INACTIVE (ပိတ်ထားဆဲ)"
+        return await event.reply(f"🤖 <b>Stealth MAU System Status:</b> {status}\n📌 ဖွင့်ရန်: <code>/stealth on</code>\n📌 ပိတ်ရန်: <code>/stealth off</code>", parse_mode='html')
+        
+    if args.lower() == "on":
+        STEALTH_MAU_MODE = True
+        await event.reply("🟢 <b>Stealth MAU Engine: ACTIVATED!</b>\nအခုကစပြီး လူတွေ စာရိုက်ရင် စာမပြန်ဘဲ နောက်ကွယ်ကနေ Unique Users ဒေတာတွေကို Silent ဖမ်းယူပါတော့မယ် Boss! 🤫", parse_mode='html')
+        
+    elif args.lower() == "off":
+        STEALTH_MAU_MODE = False
+        await event.reply("🔴 <b>Stealth MAU Engine: DEACTIVATED!</b>\nခိုးဖတ်တဲ့ စနစ်ကို ပိတ်လိုက်ပါပြီ။ Bot က ပုံမှန်အတိုင်းပဲ သွားပါတော့မယ်ဗျာ။", parse_mode='html')
+# 🦅 SILENT TRAFFIC CATCHER (စာမပြန်ဘဲ ဒေတာပဲ သိမ်းမည့်အပိုင်း)
+@bot1.on(events.NewMessage(pattern=r'(?i)^(play|p|harem|h|vault|v|waifu|w|daily|claim)$'))
+async def stealth_mau_handler(event):
+    global STEALTH_MAU_MODE
+    
+    # ခလုတ်ပိတ်ထားရင် သို့မဟုတ် Private Chat ထဲမှာဆိုရင် ဘာမှမလုပ်ဘဲ ကျော်သွားမယ်
+    if not STEALTH_MAU_MODE or event.is_private: 
+        return
+        
+    user_id = event.sender_id
+    
+    try:
+        # User Name/Mention ဆွဲထုတ်ခြင်း
+        mention = await get_html_mention(event, user_id)
+        
+        # 🤫 စာတစ်လုံးမှ ပြန်မအော်ဘဲ ဒေတာဘေ့စ်ထဲမှာ လူစာрены (MAU) သွားတိုးအောင် လုပ်ခြင်း
+        await ensure_user_registered(user_id, mention)
+        
+    except Exception:
+        # ဒီစနစ်က လုံးဝ Stealth ဖြစ်ရမှာမို့လို့ Error တက်ရင်တောင် ဂရုထဲစာမထွက်အောင် pass လုပ်ထားပါတယ်
+        pass
+@bot1.on(events.NewMessage(pattern=r'^/daily$'))
+async def daily_reward(event):
+    user_id = event.sender_id
+    now = time.time()
+    
+    user_data = await users_catcher_col.find_one({"user_id": user_id})
+    if not user_data: return await event.reply("❌ အရင်ဆုံး ကတ်တစ်ခုခု ဖမ်းယူပြီးမှ သုံးပါဗျာ။")
+    
+    last_daily = user_data.get("last_daily", 0)
+    streak = user_data.get("daily_streak", 0)
+    
+    # ၂၄ နာရီ မပြည့်သေးရင် တားမြစ်ခြင်း
+    if now - last_daily < 86400:
+        remaining = int(86400 - (now - last_daily))
+        hours, rem = divmod(remaining, 3600)
+        minutes, _ = divmod(rem, 60)
+        return await event.reply(f"⏱️ <b>စောင့်ပါဦး Boss!</b>\nနောက်ထပ် <code>{hours} နာရီ {minutes} မိနစ်</code> ပြီးမှ ပြန်ယူလို့ရပါမယ်။")
+        
+    # ရက်ဆက် ဝင်၊ မဝင် စစ်ဆေးခြင်း (၄၈ နာရီထက် ကျော်သွားရင် Streak ပျက်မယ်)
+    if now - last_daily > 172800:
+        streak = 0
+        
+    new_streak = streak + 1
+    reward = 200 + (new_streak * 50)  # ရက်ဆက်နိုင်လေ ပိုက်ဆံပိုရလေ (ဥပမာ- Max 1000)
+    if reward > 1000: reward = 1000
+    
+    await users_catcher_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {"last_daily": now, "daily_streak": new_streak},
+            "$inc": {"wallet_balance": reward}
+        }
+    )
+    await event.reply(f"🎁 <b>DAILY REWARD CLAIMED!</b>\n🪙<code>{reward} MMK</code> ရရှိပါပြီ။\n🔥 Current Streak: <code>{new_streak} ဟိုလီးရှစ်</code>")
+
+@bot1.on(events.NewMessage(pattern=r'^/done$'))
+async def done_reminder(event):
+    if event.is_private:
+        return await event.reply("❌ ဒီကွန်မန်းကို Group ထဲမှာပဲ သုံးလို့ရပါတယ်ဗျာ။")
+        
+    group_id = event.chat_id
+    user_id = event.sender_id
+    
+    # 💥 ဆရာကျတဲ့အကွက်: DB ထဲမှာ field နာမည် ဘာပဲဖြစ်ဖြစ် မိအောင် $or နဲ့ ရှာချင်တာရှာခိုင်းမယ်
+    check_group = await db["active_group"].find_one({
+        "$or": [
+            {"group_id": group_id},
+            {"chat_id": group_id},
+            {"_id": group_id},
+            {"group_id": str(group_id)}, # စာသားအနေနဲ့ ရှိနေရင်ပါ မိအောင်လို့ပါ
+            {"chat_id": str(group_id)}
+        ]
+    })
+        
+    if not check_group:
+        return # ကိုယ့်ဆီက Active Group မဟုတ်ရင် ဘာမှဝင်မလုပ်ဘူး
+        
+    try:
+        # Admin ဟုတ်၊ မဟုတ် စစ်ဆေးခြင်း
+        permissions = await bot1.get_permissions(group_id, user_id)
+        if not permissions.is_admin:
+            return await event.reply("❌ ဒီကွန်မန်းကို Group Admin များသာ နှိပ်ပိုင်ခွင့်ရှိပါတယ်")
+            
+        today_str = datetime.date.today().isoformat()
+        
+        await reminders_col.update_one(
+            {"group_id": group_id},
+            {"$set": {"is_done": True, "done_date": today_str}}
+        )
+        
+        await event.reply("<b>ဟိုက်🤓</b>\nဒီနေ့အတွက် ဒီ Group ထဲကို သတိပေးစာ ထပ်မပို့တော့ပါဝူး")
+        
+    except Exception as e:
+        print(f"Error in /done command: {e}")
 
 # ==========================================
 # ⚡ EXECUTOR INITIALIZER
@@ -1898,6 +2093,7 @@ if __name__ == '__main__':
     
     # နောက်ကွယ်မှာ Auto-Clean လုပ်မယ့် Task ကိုပါ Event Loop ထဲ ထည့်မောင်းနှင်ခြင်း
     bot1.loop.create_task(ghost_spawn_cleaner())
+    bot1.loop.create_task(group_reminder_scheduler())
     
     bot1.run_until_disconnected()
 
