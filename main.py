@@ -394,7 +394,7 @@ async def view_boss(event):
         f"HP: <code>{active_boss['hp']}/{active_boss['max_hp']}</code>\n"
         f"[{hp_bar}] ({int((active_boss['hp']/active_boss['max_hp'])*100)}%)\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⚔️ <b>တိုက်ခိုက်ရန်:</b> <code>/attack [ဂတ်_ID]</code>\n"
+        f"⚔️ <b>တိုက်ခိုက်ရန်:</b> <code>/attack [BOD_ID]</code>\n"
         f"<i>(ဥပမာ- /attack CH12345)</i>"
     )
     await send_safe_message(bot1, event.chat_id, msg, parse_mode='html')
@@ -452,6 +452,9 @@ async def attack_boss(event):
         await boss_col.update_one({"_id": active_boss["_id"]}, {"$set": {"hp": new_hp, "contributors": contributors}})
         await event.reply(f"⚔️ သင်သည် <b>{user_card['name']}</b> ကိုသုံးပြီး Boss ကို 💥 <code>{damage}</code> Damage ပေးလိုက်နိုင်ပါပြီ!")
 # Frame ဆိုင်နှင့် လက်ရှိရှိသော Frame များစာရင်း
+# ==========================================
+# 🎨 6. CARD FRAME COSMETIC SHOP & ENGINE
+# ==========================================
 AVAILABLE_FRAMES = {
     "neon": {"name": "⚡ [ NEON GLOW ]", "cost": 500, "style": "⚡ <b><tg-spoiler>{name}</tg-spoiler></b> ⚡"},
     "hellfire": {"name": "🔥 [ HELLFIRE ]", "cost": 1000, "style": "🔥 <i><u>{name}</u></i> 🔥"},
@@ -463,8 +466,8 @@ async def card_frame_system(event):
     user_id = event.sender_id
     args = event.pattern_match.group(1)
     
+    # 1️⃣ Frame Shop စာရင်းကို ပြသခြင်း
     if not args:
-        # Frame Shop List အား ပြသခြင်း
         shop_text = "🎨 <b>CARD FRAME COSMETIC SHOP</b>\n━━━━━━━━━━━━━━━━━━━━\n"
         for fid, f_info in AVAILABLE_FRAMES.items():
             shop_text += f"🔹 Code: <code>{fid}</code> | {f_info['name']} - Cost: <code>{f_info['cost']} MMK</code>\n"
@@ -474,27 +477,70 @@ async def card_frame_system(event):
     parts = args.split()
     sub_command = parts[0].lower()
     
-    # Frame Apply လုပ်သည့်အပိုင်း
-    if sub_command == "apply" and len(parts) >= 3:
+    # 2️⃣ Frame ဝယ်ယူသည့်အပိုင်း (/frame buy hellfire)
+    if sub_command == "buy" and len(parts) >= 2:
+        frame_code = parts[1].lower()
+        if frame_code not in AVAILABLE_FRAMES:
+            return await event.reply("❌ ထို Frame Code မရှိပါဘူးဗျာ။")
+            
+        frame_info = AVAILABLE_FRAMES[frame_code]
+        
+        # User အကောင့် ရှိမရှိနှင့် ပိုက်ဆံ စစ်ဆေးခြင်း
+        user_data = await users_catcher_col.find_one({"user_id": user_id})
+        if not user_data:
+            return await event.reply("❌ သင့်အကောင့်ကို မတွေ့ပါဘူး။ အရင်ဆုံး /catch တစ်ခါလုပ်ပြီး အကောင့်ဖွင့်ပါ။")
+            
+        balance = user_data.get("wallet_balance", 0)
+        if balance < frame_info["cost"]:
+            return await event.reply(f"❌ <b>ဝယ်ယူရန် ပိုက်ဆံမလောက်ပါဘူး Boss!</b>\n💵 လိုအပ်ချက်: <code>{frame_info['cost']} MMK</code>\n🪙 သင့်လက်ကျန်: <code>{balance} MMK</code>", parse_mode='html')
+            
+        # ဝယ်ပြီးသား ဖြစ်မဖြစ် စစ်ဆေးခြင်း
+        owned_frames = user_data.get("owned_frames", [])
+        if frame_code in owned_frames:
+            return await event.reply(f"❌ သင်သည် {frame_info['name']} ကို ဝယ်ယူထားပြီးသား ဖြစ်ပါသည်။")
+            
+        # ပိုက်ဆံနှုတ်ပြီး ဝယ်ထားသော စာရင်း (owned_frames) ထဲသို့ ဒေတာ ထည့်ခြင်း
+        await users_catcher_col.update_one(
+            {"user_id": user_id},
+            {
+                "$inc": {"wallet_balance": -frame_info["cost"]},
+                "$push": {"owned_frames": frame_code}
+            }
+        )
+        return await event.reply(f"🎉 <b>ဝယ်ယူမှု အောင်မြင်ပါပြီ!</b>\nคุณ {frame_info['name']} ကို <code>{frame_info['cost']} MMK</code> ဖြင့် ဝယ်ယူလိုက်ပါပြီ။\n📌 သင့်ကတ်မှာ သွားတပ်ရန်: <code>/frame apply [Card_ID] {frame_code}</code>", parse_mode='html')
+
+    # 3️⃣ ဝယ်ပြီးသား Frame အား မိမိကတ်တွင် တပ်ဆင်သည့်အပိုင်း (/frame apply CH1234 neon)
+    elif sub_command == "apply" and len(parts) >= 3:
         char_id = parts[1].upper()
         frame_code = parts[2].lower()
         
         if frame_code not in AVAILABLE_FRAMES:
             return await event.reply("❌ ထို Frame Code မရှိပါဘူး။")
             
-        # ကစားသမားဆီမှာ အဲဒီ Frame ရှိမရှိ သို့မဟုတ် တန်းဝယ်ခိုင်းမလား စစ်ဆေးခြင်း
-        # (ဒီနေရာမှာ ရိုးရှင်းအောင် အရင်ဝယ်ထားစရာမလိုဘဲ တန်းတပ်ပြီး ပိုက်ဆံဖြတ်သည့်ပုံစံ ရေးပေးထားပါတယ်)
         frame_info = AVAILABLE_FRAMES[frame_code]
+        user_data = await users_catcher_col.find_one({"user_id": user_id})
+        if not user_data: return await event.reply("❌ သင့်အကောင့်ကို မတွေ့ပါဘူး။")
         
-        # ကတ်ရှိမရှိစစ်
-        card = await users_catcher_col.find_one({"user_id": user_id, "char_id": char_id})
-        if not card: return await event.reply("❌ သင့်မှာ ဒီ Card ID မရှိပါဘူး။")
+        # ဤ Frame ကို တကယ် ဝယ်ထားခြင်း ရှိမရှိ စစ်ဆေးခြင်း
+        owned_frames = user_data.get("owned_frames", [])
+        if frame_code not in owned_frames:
+            return await event.reply(f"❌ သင်သည် ဤ Frame ကို ဝယ်ယူထားခြင်း မရှိသေးပါ။ အရင်ဆုံး <code>/frame buy {frame_code}</code> ဖြင့် ဝယ်ယူပါဦး။", parse_mode='html')
         
-        # Profile ပြတဲ့အခါ သုံးရမယ့် Logic နမူနာ-
-        # format_name = frame_info["style"].format(name=card["name"])
+        # ကစားသမား၏ harem ထဲတွင် ထို ကတ် ID ရှိမရှိ စစ်ဆေးခြင်း
+        harem = user_data.get("harem", [])
+        card_exists = any(card["char_id"] == char_id for card in harem)
+        if not card_exists:
+            return await event.reply("❌ သင့်ရဲ့ စုဆောင်းမှု Vault (Harem) ထဲမှာ ဒီ Card ID မရှိပါဘူးဗျာ။")
+            
+        # MongoDB Array Dynamic Operator ($) ကိုသုံးပြီး harem ထဲက သက်ဆိုင်ရာ ကတ်ကောင်လေးမှာ frame သွားထည့်ခြင်း
+        await users_catcher_col.update_one(
+            {"user_id": user_id, "harem.char_id": char_id},
+            {"$set": {"harem.$.frame": frame_code}}
+        )
+        return await event.reply(f"🎨 <b>COSMETIC EQUIPPED!</b>\nသင်၏ Card ID: <code>{char_id}</code> တွင် {frame_info['name']} ကို အောင်မြင်စွာ တပ်ဆင်လိုက်ပါပြီ။", parse_mode='html')
         
-        await users_catcher_col.update_one({"user_id": user_id, "char_id": char_id}, {"$set": {"frame": frame_code}})
-        await event.reply(f"🎨 အောင်မြင်ပါပြီ! သင်၏ <b>{card['name']}</b> တွင် {frame_info['name']} ကို တပ်ဆင်လိုက်ပါပြီ။")
+    else:
+        return await event.reply("⚠️ <b>ကွန်မန်း ပုံစံမှားနေပါတယ် Boss!</b>\n🛒 ဝယ်ယူရန်: <code>/frame buy [code]</code>\n✨ ကတ်တွင်တပ်ရန်: <code>/frame apply [Card_ID] [code]</code>", parse_mode='html')
 
 # ==========================================
 # 🛰️ 2. OVERRIDE FORCE SPAWN ENGINE (/fspawn & /haii)
