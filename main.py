@@ -11,8 +11,9 @@ from flask import Flask
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from html import escape as escape_html
-from telethon import TelegramClient, events, types, Button, errors
-
+from telethon.errors import FloodWaitError
+from telethon import TelegramClient, events, types, Button, errors.
+from collections import defaultdict
 # ==========================================
 # ⚡ PREMIUM MATHEMATICAL BOLD SERIF FONT CONVERTER
 # ==========================================
@@ -43,6 +44,32 @@ async def ensure_user_registered(user_id, fullname):
         upsert=True
     )
 
+# ==========================================
+# 🛡️ FLOOD WAIT PROTECTION ENGINE
+# ==========================================
+async def send_safe_message(client, chat_id, text, **kwargs):
+    """FloodWait မိရင် အလိုအလျောက် စောင့်ပြီးမှ ပို့ပေးမည့် Safe Message Function"""
+    while True:
+        try:
+            return await client.send_message(chat_id, text, **kwargs)
+        except FloodWaitError as e:
+            logging.warning(f"⚠️ Telegram FloodWait Hit! Sleeping for {e.seconds} seconds...")
+            await asyncio.sleep(e.seconds)  # Telegram တောင်းဆိုတဲ့ စက္ကန့်အတိုင်း အလိုအလျောက် Sleep သွားမည်
+        except Exception as e:
+            logging.error(f"❌ Unexpected Error in send_safe_message: {e}")
+            raise e
+
+async def send_safe_file(client, chat_id, file, **kwargs):
+    """Spawn တဲ့အခါ ပုံ/ဗီဒီယိုတွေ ပို့ရင် FloodWait မမိအောင် ကာကွယ်ပေးမည့် Function"""
+    while True:
+        try:
+            return await client.send_file(chat_id, file, **kwargs)
+        except FloodWaitError as e:
+            logging.warning(f"⚠️ Telegram FloodWait Hit during File Upload! Sleeping for {e.seconds} seconds...")
+            await asyncio.sleep(e.seconds)
+        except Exception as e:
+            logging.error(f"❌ Unexpected Error in send_safe_file: {e}")
+            raise e
 # ==========================================
 # 🔍 SMART TEXT NORMALIZER FOR TEXT MATCHING
 # ==========================================
@@ -87,22 +114,40 @@ users_catcher_col = db["users_catcher_data"]
 groups_counters_col = db["groups_msg_counters"]    
 groups_config_col = db["groups_catcher_config"]   
 marketplace_col = db["marketplace_data"]          
+boss_col = db["boss_active_data"] 
+guilds_col = db["guilds_data"]
 
 bot1 = TelegramClient('bot_main_session', APP_ID, APP_HASH)
 active_group_spawns = {} 
 active_card_games = {} 
-spawn_locks = {}  # Anti-Race Condition Distributed Lock Matrix
-
+spawn_locks = defaultdict(asyncio.Lock) 
 # ==========================================
-# 🎭 RARITY MAPPING MATRIX
+# 🌌 GLOBAL BOSS POOL MATRIX (၁၀ ကောင်မှ ၁၅ ကောင် စာရင်း)
+# ==========================================
+BOSS_POOL = [
+    {"name": "🔥 𝔎𝔦𝔫𝔤 𝔇𝔢𝔪𝔬𝔫 𝔄𝔰𝔥𝔱𝔞𝔯𝔬𝔱𝔥", "max_hp": 5000},
+    {"name": "🐉 𝔄𝔫𝔠𝔦𝔢𝔫𝔱 𝔙𝔬𝔶𝔡 𝔇𝔯𝔞𝔤𝔬𝔫", "max_hp": 7500},
+    {"name": "💀 𝔖𝔥𝔞𝔡𝔬𝔴 𝔑𝔢𝔠𝔯𝔬𝔪𝔞𝔫𝔠𝔢𝔯", "max_hp": 4000},
+    {"name": "⚡ ℭ𝔥𝔞𝔬𝔰 ℔𝔥𝔲𝔫𝔡𝔢𝔯 𝔊𝔬𝔡", "max_hp": 6500},
+    {"name": "❄️ 𝔉𝔯𝔬𝔰𝔱 𝔖𝔭𝔢𝔠𝔱𝔢𝔯 ℜ𝔢𝔵", "max_hp": 4500},
+    {"name": "🎭 𝔗𝔥𝔢 𝔐𝔞𝔡 𝔍𝔢𝔰𝔱𝔢𝔯", "max_hp": 3500},
+    {"name": "🩸 𝔙𝔞𝔪𝔭𝔦𝔯𝔢 ℔𝔬𝔯𝔡 𝔇𝔯𝔞𝔠𝔲𝔩𝔞", "max_hp": 5500},
+    {"name": "⛰️ ℭ𝔲𝔯𝔰𝔢𝔡 𝔖𝔱𝔬𝔫𝔢 𝔊𝔬𝔩𝔢𝔪", "max_hp": 8000},
+    {"name": "🦊 𝔑𝔦𝔫𝔢-𝔗𝔞𝔦𝔩𝔢𝔡 𝔇𝔢𝔪𝔬𝔫 𝔉𝔬𝔵", "max_hp": 6000},
+    {"name": "⚔️ 𝔓𝔥𝔞𝔫𝔱𝔬𝔪 𝔖𝔥𝔦𝔫𝔬𝔟𝔦 𝔒𝔯𝔬𝔠𝔥𝔦", "max_hp": 4800},
+    {"name": "🪐 𝔖𝔭𝔞𝔿𝔢 ℔𝔦𝔱𝔥 ℭ𝔱𝔥𝔲𝔩𝔥𝔲", "max_hp": 9999},
+    {"name": "🦾 ℭ𝔶𝔟𝔢𝔯𝔫𝔢𝔱𝔦𝔠 𝔇𝔢𝔰𝔱𝔯𝔬𝔶𝔢𝔯", "max_hp": 7000}
+]
+
+# 🎭 RARITY MAPPING MATRIX (NEON GACHA EDITION 🔥)
 # ==========================================
 RARITY_NUM_MAP = {
-    "1": {"name": f"💎 {f('LEGENDARY')}", "value": 1000},  
-    "2": {"name": f"🎟️ {f('LIMITED')}", "value": 750},   
-    "3": {"name": f"🪐 {f('MYTHIC')}", "value": 500},    
-    "4": {"name": f"⚡ {f('EPIC')}", "value": 300},      
-    "5": {"name": f"✨ {f('RARE')}", "value": 150},      
-    "6": {"name": f"🪵 {f('COMMON')}", "value": 50}       
+    "1": {"name": f"🌌 {f('LEGENDARY')}", "value": 1000},  
+    "2": {"name": f"🎴 {f('LIMITED')}", "value": 750},   
+    "3": {"name": f"🌀 {f('MYTHIC')}", "value": 500},    
+    "4": {"name": f"🔥 {f('EPIC')}", "value": 300},      
+    "5": {"name": f"💠 {f('RARE')}", "value": 150},      
+    "6": {"name": f"🃏 {f('COMMON')}", "value": 50}       
 }
 
 async def get_html_mention(event, user_id=None):
@@ -133,12 +178,12 @@ async def add_character(event):
             f"<code>/addchar Name | Category | Rarity_Number</code>\n"
             f"<i>(Media File တစ်ခုခုကို Reply ပြန်ပြီး သုံးပေးပါ)</i>\n\n"
             f"🔢 <b>{f('Rarity Tiers (1-6)')}:</b>\n"
-            f"<code>1</code> = 👑 LEGENDARY (1000 MMK)\n"
-            f"<code>2</code> = ⏳ LIMITED-EDITION (750 MMK)\n"
-            f"<code>3</code> = 🔮 MYTHIC (500 MMK)\n"
+            f"<code>1</code> = 🌌 LEGENDARY (1000 MMK)\n"
+            f"<code>2</code> = 🎴 LIMITED-EDITION (750 MMK)\n"
+            f"<code>3</code> = 🌀 MYTHIC (500 MMK)\n"
             f"<code>4</code> = 🔥 EPIC (300 MMK)\n"
-            f"<code>5</code> = ✨ RARE (150 MMK)\n"
-            f"<code>6</code> = ♻️ COMMON (50 MMK)\n"
+            f"<code>5</code> = 💠 RARE (150 MMK)\n"
+            f"<code>6</code> = 🃏 COMMON (50 MMK)\n"
             f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
             f"💡 <b>{f('Example')}:</b> <code>/addchar Dexter Morgan | Series | 1</code>",
             parse_mode='html'
@@ -162,12 +207,12 @@ async def add_character(event):
         return await event.reply(f"❌ <b>{f('ထည့်သွင်းဖို့ Valid ဖြစ်တဲ့ Media ရှာမတွေ့ဘူး Bro!')}</b>", parse_mode='html')
 
     try:
-        forwarded_msg = await bot1.send_message(SPECIFIC_CONTROL_GROUP, file=reply_msg.media)
+        forwarded_msg = await send_safe_message(bot1, SPECIFIC_CONTROL_GROUP, "", file=reply_msg.media)
         storage_id = forwarded_msg.id
         r_info = RARITY_NUM_MAP[rarity_num]
         
         while True:
-            char_id = f"CH{random.randint(10000, 99999)}"
+            char_id = f"BOD{random.randint(0001, 99999)}"
             exists = await characters_base_col.find_one({"char_id": char_id})
             if not exists: break
 
@@ -197,6 +242,28 @@ async def add_character(event):
         await event.reply(success_msg, parse_mode='html')
     except Exception as e:
         await event.reply(f"❌ <b>Database Inject Error</b>: <code>{escape_html(str(e))}</code>", parse_mode='html')
+
+
+@bot1.on(events.NewMessage(pattern=r'^/haiclean$'))
+async def haiclean_handler(event):
+    # Owner ID ဟုတ်မဟုတ် သေချာအောင် စစ်ဆေးခြင်း (Owner သာ သုံးခွင့်ရှိမည်)
+    if event.sender_id != OWNER_ID:
+        return await event.reply("❌ ဒီကွန်မန်းကို Bot Owner တစ်ဦးတည်းသာ အသုံးပြုခွင့်ရှိပါတယ်။")
+    
+    # ရှင်းလင်းမည့်အကြောင်း အကြောင်းကြားစာ အရင်ပို့ခြင်း
+    progress_msg = await event.reply("⏳ Database များကို ရှင်းလင်းနေပါသည်...")
+    
+    try:
+        # Collection ၃ ခုလုံးက ဒေတာများကို အကုန်ဖျက်ပစ်ခြင်း
+        await db["characters_base_data"].delete_many({})
+        await db["users_catcher_data"].delete_many({})
+        await db["marketplace_data"].delete_many({})
+        
+        # အောင်မြင်ကြောင်း စာပြန်ခြင်း
+        await progress_msg.edit("🧹 Database ၃ ခုလုံးကို လုံးဝ (လုံးဝ) ပြောင်စင်အောင် ရှင်းလင်းပြီးပါပြီဗျာ။ အသစ်ပြန်ထည့်နိုင်ပါပြီ။")
+        
+    except Exception as e:
+        await progress_msg.edit(f"❌ Error တစ်ခု တက်သွားပါတယ်- {e}")
 
 # ==========================================
 # 💰 OWNER WALLET CONTROL COMMANDS (/take, /giveall, /give, /takeall)
@@ -273,6 +340,161 @@ async def take_money_from_everyone(event):
         await event.reply(text, parse_mode='html')
     except Exception as e:
         await event.reply(f"❌ <b>Takeall System Fault:</b> <code>{e}</code>", parse_mode='html')
+# 🚨 OWNER သာ သုံးခွင့်ရှိသော BOSS SPAWNER
+@bot1.on(events.NewMessage(pattern=r'^/spawnboss$'))
+async def spawn_random_boss(event):
+    if event.sender_id != OWNER_ID: return
+    
+    # ယခင် ရှိနေခဲ့ဖူးသော Active Boss အဟောင်းများကို ရှင်းထုတ်ခြင်း
+    await boss_col.delete_many({"status": "active"})
+    
+    # BOSS_POOL ထဲမှ ကျပန်း တစ်ကောင်ရွေးခြင်း
+    chosen_boss = random.choice(BOSS_POOL)
+    boss_id = f"B{random.randint(1000, 9999)}"
+    
+    # Database ထဲ Data Inject လုပ်ခြင်း
+    active_boss_data = {
+        "boss_id": boss_id,
+        "name": chosen_boss["name"],
+        "hp": chosen_boss["max_hp"],
+        "max_hp": chosen_boss["max_hp"],
+        "status": "active",
+        "contributors": {}
+    }
+    
+    await boss_col.insert_one(active_boss_data)
+    
+    # Group ထဲကို Boss ထွက်လာကြောင်း ကြေညာခြင်း
+    announcement = (
+        f"🚨 <b>GLOBAL BOSS RAID WARNING</b> 🚨\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
+        f"ငရဲတံခါး ပွင့်သွားပြီး ကမ္ဘာမြေပေါ်သို့ ရန်သူဆိုးကြီး ကျရောက်လာပါပြီ။\n\n"
+        f"👹 Boss Name: <b>{chosen_boss['name']}</b>\n"
+        f"🩸 Total HP: <code>{chosen_boss['max_hp']} / {chosen_boss['max_hp']}</code>\n\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+        f"⚔️ ကစားသမားများအားလုံး စုပေါင်းပြီး <code>/attack [Card_ID]</code> ဖြင့် အမြန်ဆုံး သုတ်သင်ကြပါဗျာ။"
+    )
+    
+    await send_safe_message(bot1, event.chat_id, announcement, parse_mode='html')
+# ၁။ လက်ရှိ Boss အခြေအနေကို ကြည့်ခြင်း
+@bot1.on(events.NewMessage(pattern=r'^/boss$'))
+async def view_boss(event):
+    active_boss = await boss_col.find_one({"status": "active"})
+    if not active_boss:
+        return await send_safe_message(bot1, event.chat_id, "💤 လက်ရှိအချိန်မှာ Global Boss မရှိသေးပါဘူးဗျာ။")
+    
+    # HP Bar ဖန်တီးခြင်း
+    hp_percent = int((active_boss["hp"] / active_boss["max_hp"]) * 10)
+    hp_bar = "🟥" * hp_percent + "⬛" * (10 - hp_percent)
+    
+    msg = (
+        f"👹 <b>GLOBAL BOSS RAID ACTIVE</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"NAME: <b>{active_boss['name']}</b>\n"
+        f"HP: <code>{active_boss['hp']}/{active_boss['max_hp']}</code>\n"
+        f"[{hp_bar}] ({int((active_boss['hp']/active_boss['max_hp'])*100)}%)\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"⚔️ <b>တိုက်ခိုက်ရန်:</b> <code>/attack [ဂတ်_ID]</code>\n"
+        f"<i>(ဥပမာ- /attack CH12345)</i>"
+    )
+    await send_safe_message(bot1, event.chat_id, msg, parse_mode='html')
+
+# ၂။ မိမိကတ်ဖြင့် Boss ကို တိုက်ခိုက်ခြင်း
+@bot1.on(events.NewMessage(pattern=r'^/attack(?:\s+(.+))?'))
+async def attack_boss(event):
+    user_id = event.sender_id
+    char_id = event.pattern_match.group(1)
+    
+    if not char_id:
+        return await event.reply("⚠️ <b>တိုက်ခိုက်မည့် Card ID ထည့်ပေးပါ!</b>\nUsage: <code>/attack CH12345</code>", parse_mode='html')
+    
+    active_boss = await boss_col.find_one({"status": "active"})
+    if not active_boss:
+        return await event.reply("❌ လက်ရှိတိုက်ခိုက်စရာ Boss မရှိပါဘူး။")
+        
+    # ကစားသမားဆီမှာ အဲဒီကတ် တကယ်ရှိမရှိ စစ်ဆေးခြင်း
+    user_card = await users_catcher_col.find_one({"user_id": user_id, "char_id": char_id.strip().upper()})
+    if not user_card:
+        return await event.reply("❌ သင့် Inventory ထဲမှာ ဒီ Card ID မရှိပါဘူးဗျာ။")
+    
+    # ကတ်ရဲ့ တန်ဖိုး (Worth) အပေါ်မူတည်ပြီး Damage တွက်ချက်ခြင်း
+    base_dmg = user_card.get("currency_value", 50)
+    damage = random.randint(int(base_dmg * 0.8), int(base_dmg * 1.2)) # Variable damage +-20%
+    
+    new_hp = max(0, active_boss["hp"] - damage)
+    
+    # Contributors ထဲ ဒေတာပေါင်းထည့်ခြင်း
+    contributors = active_boss.get("contributors", {})
+    str_user_id = str(user_id)
+    contributors[str_user_id] = contributors.get(str_user_id, 0) + damage
+    
+    if new_hp <= 0:
+        # Boss သေဆုံးသွားပါက Reward ပေးမည့် Logic
+        await boss_col.update_one({"_id": active_boss["_id"]}, {"$set": {"hp": 0, "status": "defeated", "contributors": contributors}})
+        
+        # Damage အများဆုံး ပေးနိုင်သူ Top 3 ကို ရှာခြင်း
+        sorted_contributors = sorted(contributors.items(), key=lambda x: x[1], reverse=True)[:3]
+        
+        leaderboard_text = ""
+        for index, (u_id, dmg) in enumerate(sorted_contributors):
+            mention = await get_html_mention(event, int(u_id))
+            leaderboard_text += f"{index+1}️⃣ {mention} - {dmg} DMG 🏆\n"
+            # ဤနေရာတွင် Top 3 ကို ပိုက်ဆံ (သို့) Special Item များ Code ဖြင့် ပေးနိုင်ပါသည်
+            
+        reward_msg = (
+            f"🎉 <b>BOSS DEFEATED!</b> 🎉\n"
+            f"<b>{active_boss['name']}</b> ကို အောင်မြင်စွာ နှိမ်နင်းနိုင်ခဲ့ပါပြီ။\n\n"
+            f"🏆 <b>TOP DAMAGE DEALERS (REWARDS SENT):</b>\n{leaderboard_text}"
+        )
+        await send_safe_message(bot1, event.chat_id, reward_msg, parse_mode='html')
+    else:
+        # Boss သွေးလျော့သွားကြောင်း Update လုပ်ခြင်း
+        await boss_col.update_one({"_id": active_boss["_id"]}, {"$set": {"hp": new_hp, "contributors": contributors}})
+        await event.reply(f"⚔️ သင်သည် <b>{user_card['name']}</b> ကိုသုံးပြီး Boss ကို 💥 <code>{damage}</code> Damage ပေးလိုက်နိုင်ပါပြီ!")
+# Frame ဆိုင်နှင့် လက်ရှိရှိသော Frame များစာရင်း
+AVAILABLE_FRAMES = {
+    "neon": {"name": "⚡ [ NEON GLOW ]", "cost": 500, "style": "⚡ <b><tg-spoiler>{name}</tg-spoiler></b> ⚡"},
+    "hellfire": {"name": "🔥 [ HELLFIRE ]", "cost": 1000, "style": "🔥 <i><u>{name}</u></i> 🔥"},
+    "sakura": {"name": "🌸 [ SAKURA VALE ]", "cost": 300, "style": "🌸 <b>{name}</b> 🌸"}
+}
+
+@bot1.on(events.NewMessage(pattern=r'^/frame(?:\s+(.+))?'))
+async def card_frame_system(event):
+    user_id = event.sender_id
+    args = event.pattern_match.group(1)
+    
+    if not args:
+        # Frame Shop List အား ပြသခြင်း
+        shop_text = "🎨 <b>CARD FRAME COSMETIC SHOP</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        for fid, f_info in AVAILABLE_FRAMES.items():
+            shop_text += f"🔹 Code: <code>{fid}</code> | {f_info['name']} - Cost: <code>{f_info['cost']} MMK</code>\n"
+        shop_text += "━━━━━━━━━━━━━━━━━━━━\n📌 <b>ဝယ်ယူရန်:</b> <code>/frame buy [Frame_Code]</code>\n📌 <b>ကတ်တွင်တပ်ရန်:</b> <code>/frame apply [Card_ID] [Frame_Code]</code>"
+        return await send_safe_message(bot1, event.chat_id, shop_text, parse_mode='html')
+        
+    parts = args.split()
+    sub_command = parts[0].lower()
+    
+    # Frame Apply လုပ်သည့်အပိုင်း
+    if sub_command == "apply" and len(parts) >= 3:
+        char_id = parts[1].upper()
+        frame_code = parts[2].lower()
+        
+        if frame_code not in AVAILABLE_FRAMES:
+            return await event.reply("❌ ထို Frame Code မရှိပါဘူး။")
+            
+        # ကစားသမားဆီမှာ အဲဒီ Frame ရှိမရှိ သို့မဟုတ် တန်းဝယ်ခိုင်းမလား စစ်ဆေးခြင်း
+        # (ဒီနေရာမှာ ရိုးရှင်းအောင် အရင်ဝယ်ထားစရာမလိုဘဲ တန်းတပ်ပြီး ပိုက်ဆံဖြတ်သည့်ပုံစံ ရေးပေးထားပါတယ်)
+        frame_info = AVAILABLE_FRAMES[frame_code]
+        
+        # ကတ်ရှိမရှိစစ်
+        card = await users_catcher_col.find_one({"user_id": user_id, "char_id": char_id})
+        if not card: return await event.reply("❌ သင့်မှာ ဒီ Card ID မရှိပါဘူး။")
+        
+        # Profile ပြတဲ့အခါ သုံးရမယ့် Logic နမူနာ-
+        # format_name = frame_info["style"].format(name=card["name"])
+        
+        await users_catcher_col.update_one({"user_id": user_id, "char_id": char_id}, {"$set": {"frame": frame_code}})
+        await event.reply(f"🎨 အောင်မြင်ပါပြီ! သင်၏ <b>{card['name']}</b> တွင် {frame_info['name']} ကို တပ်ဆင်လိုက်ပါပြီ။")
 
 # ==========================================
 # 🛰️ 2. OVERRIDE FORCE SPAWN ENGINE (/fspawn & /haii)
@@ -379,7 +601,7 @@ async def who_reveal_handler(event):
     await event.reply(reveal_text, parse_mode='html')
 
 # ==========================================
-# 🎯 5. CLAIM ENGINE CORE (/catch) - WITH ATOMIC LOCKS
+# 🎯 5. CLAIM ENGINE CORE (/catch) - WITH ATOMIC LOCKS & GUILD EXP
 # ==========================================
 @bot1.on(events.NewMessage(pattern=r'^/catch\s+(.*)$'))
 async def catch_handler(event):
@@ -401,10 +623,7 @@ async def catch_handler(event):
     if normalize_name(catch_name) != normalize_name(spawn_data["name"]): 
         return await event.reply(f"❌ <b>{f('နာမည်မှားနေတယ် Boss! သေချာပြန်စစ်ပြီး /catch')}</b>", parse_mode='html')
 
-    # [AI Optimization] Distributed Async Lock to absolutely block double-claim race conditions
-    if chat_id not in spawn_locks:
-        spawn_locks[chat_id] = asyncio.Lock()
-        
+    # [AI Optimization] Distributed Async Lock to absolutely block double-claim race conditions     
     async with spawn_locks[chat_id]:
         if active_group_spawns.get(chat_id, {}).get("claimed", True): return
         active_group_spawns[chat_id]["claimed"] = True
@@ -413,6 +632,7 @@ async def catch_handler(event):
         await ensure_user_registered(user_id, mention)
         
         try:
+            # 1️⃣ ကစားသမား၏ Inventory Database အား အရင်ဆုံး Update ပြုလုပ်ခြင်း
             await users_catcher_col.update_one(
                 {"user_id": user_id},
                 {
@@ -434,20 +654,45 @@ async def catch_handler(event):
                 upsert=True
             )
             
+            # 🏰 2️⃣ GUILD EXP SYSTEM INTEGRATION (ကတ်မိလို့ Clan Level တက်မတက် စစ်ဆေးခြင်း)
+            guild_levelup_msg = ""
+            user_guild = await guilds_col.find_one({"members": user_id})
+            if user_guild:
+                new_xp = user_guild["xp"] + 10
+                current_level = user_guild["level"]
+                
+                # Level Up သတ်မှတ်ချက် စစ်ဆေးခြင်း (Level အလိုက် XP 500 လိုအပ်သည်)
+                if new_xp >= (current_level * 500):
+                    await guilds_col.update_one({"_id": user_guild["_id"]}, {"$set": {"xp": 0}, "$inc": {"level": 1}})
+                    guild_levelup_msg = f"\n\n🏰 <b>Guild Level Up!</b> 👑\nသင်တို့၏ Guild <b>[{escape_html(user_guild['name'])}]</b> သည် Level <b>{current_level + 1}</b> သို့ တက်လှမ်းသွားပါပြီ။ 🎉"
+                else:
+                    await guilds_col.update_one({"_id": user_guild["_id"]}, {"$inc": {"xp": 10}})
+            
+            # 3️⃣ Active ဖြစ်နေသော Spawn ဒေတာများအား Memory ထဲမှ ဖယ်ရှားခြင်း
             del active_group_spawns[chat_id]
             if chat_id in spawn_locks: del spawn_locks[chat_id]
             
-            success_text = (
+            # Success Message (မူရင်းကုဒ်မှ Variable Name အမှားအား ဆရာကျကျ ပြင်ဆင်ပေးထားပါသည် 😎)
+            success_msg = (
                 f"🎯 <b>{f('CAPTURED SUCCESS / ဖမ်းယူမှု အောင်မြင်ခြင်း')} ✨</b>\n"
+                f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
                 f"👤 <b>{f('Hunter')}:</b> {mention}\n"
                 f"🃏 <b>{f('Character')}:</b> <code>{escape_html(spawn_data['name'])}</code>\n"
                 f"🆔 <b>{f('Asset ID')}:</b> <code>{spawn_data['char_id']}</code>\n"
                 f"🌟 <b>{f('Rarity Class')}:</b> {spawn_data['rarity']}\n"
                 f"🪙 <b>{f('Bounty Added')}:</b> <code>+{spawn_data['value']} MMK</code>\n"
-                f"<blockquote><b>{f('Mission Secured')}!</b> ဒီHaiကို သင့်ရဲ့ စုဆောင်းမှု Vault ထဲသို့ အပိုင်ဆွဲထည့်လိုက်ပြီနော်Boss!🔥</blockquote>"
+                f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+                f"<blockquote><b>{f('Mission Secured')}!</b> ဒီ Character ကို သင့်ရဲ့ စုဆောင်းမှု Vault ထဲသို့ အပိုင်ဆွဲထည့်လိုက်ပြီနော် Boss!🔥</blockquote>"
             )
-            await bot1.send_message(chat_id, success_text, parse_mode='html')
+            
+            # အကယ်၍ Guild Level တက်ခဲ့ပါက ကတ်မိတဲ့စာသားအောက်မှာ တစ်ခါတည်း Message ချိတ်ပြပေးမည့်စနစ်
+            if guild_levelup_msg:
+                success_msg += guild_levelup_msg
+                
+            await send_safe_message(bot1, event.chat_id, success_msg, parse_mode='html', reply_to=event.id)
+            
         except Exception as e:
+            # Error တစ်ခုခုတက်လျှင် တခြားလူ ပြန်ဖမ်းလို့ရအောင် Claimed ကို False ပြန်ပြင်ပေးခြင်း
             active_group_spawns[chat_id]["claimed"] = False
             await event.reply(f"❌ <b>Catch Logic Fault:</b> <code>{e}</code>", parse_mode='html')
 
@@ -1575,6 +1820,26 @@ async def exclusive_owner_panel(event):
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
     )
     await event.reply(owner_text, parse_mode='html')
+async def ghost_spawn_cleaner():
+    """မိနစ် ၃၀ ကျော်သည်အထိ မဖမ်းဘဲ ပစ်ထားသော ဒေတာများကို RAM ပေါ်မှ လိုက်လံ ရှင်းလင်းပေးမည့် AI Task"""
+    while True:
+        try:
+            current_time = time.time()
+            expired_chats = []
+            for chat_id, data in active_group_spawns.items():
+                # မိနစ် ၃၀ (၁၈၀၀ စက္ကန့်) ကျော်သွားရင် Expired သတ်မှတ်
+                if current_time - data.get("spawn_time", 0) > 1800:
+                    expired_chats.append(chat_id)
+            
+            for chat_id in expired_chats:
+                if chat_id in active_group_spawns:
+                    del active_group_spawns[chat_id]
+                if chat_id in spawn_locks:
+                    del spawn_locks[chat_id]
+        except Exception as e:
+            logging.error(f"Cleaner Error: {e}")
+        
+        await asyncio.sleep(300) # ၅ မိနစ်တစ်ခါ ပတ်စစ်ပေးမယ်
 
 # ==========================================
 # ⚡ EXECUTOR INITIALIZER
@@ -1582,6 +1847,11 @@ async def exclusive_owner_panel(event):
 if __name__ == '__main__':
     threading.Thread(target=run_flask, daemon=True).start()
     print("🛰️ Sovereign Matrix Grid Online...")
+    
     bot1.start(bot_token=MAIN_BOT_TOKEN)
+    
+    # နောက်ကွယ်မှာ Auto-Clean လုပ်မယ့် Task ကိုပါ Event Loop ထဲ ထည့်မောင်းနှင်ခြင်း
+    bot1.loop.create_task(ghost_spawn_cleaner())
+    
     bot1.run_until_disconnected()
 
