@@ -212,7 +212,7 @@ async def add_character(event):
         r_info = RARITY_NUM_MAP[rarity_num]
         
         while True:
-            char_id = f"BOD{random.randint(0001, 99999)}"
+            char_id = f"BOD{random.randint(1, 9999)}"
             exists = await characters_base_col.find_one({"char_id": char_id})
             if not exists: break
 
