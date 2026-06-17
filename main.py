@@ -12,7 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from html import escape as escape_html
 from telethon.errors import FloodWaitError
-from telethon import TelegramClient, events, types, Button, errors.
+from telethon import TelegramClient, events, types, Button, errors
 from collections import defaultdict
 # ==========================================
 # ⚡ PREMIUM MATHEMATICAL BOLD SERIF FONT CONVERTER
