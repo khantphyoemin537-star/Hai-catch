@@ -5,9 +5,11 @@ import random
 import os
 import threading
 import re
+from PIL import Image, ImageDraw
 import time
 from datetime import datetime, timedelta
 from flask import Flask
+from PIL import Image, ImageDraw
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from html import escape as escape_html
@@ -234,7 +236,269 @@ async def get_html_mention(event, user_id=None):
     except:
         fullname = f"Agent {user_id}"
     return f"<a href='tg://user?id={user_id}'><b>{escape_html(fullname)}</b></a>"
+# ==========================================
+# ⚙️ PREMIUM EMOJI TO HTML CONVERTER ENGINE
+# ==========================================
+def message_to_html(text, entities):
+    """Premium Emoji များနှင့် Formatting များကို HTML အဖြစ် လုံးဝပုံစံမပျက် ပြောင်းလဲပေးသည့် Function"""
+    if not text:
+        return ""
+    if not entities:
+        return escape_html(text)
+        
+    encoded_text = text.encode('utf-16-le')
+    s_units = [encoded_text[i:i+2].decode('utf-16-le') for i in range(0, len(encoded_text), 2)]
+    
+    events = defaultdict(list)
+    from telethon.tl.types import (
+        MessageEntityBold, MessageEntityItalic, MessageEntityCode, 
+        MessageEntityPre, MessageEntityStrike, MessageEntityUnderline, 
+        MessageEntityBlockquote, MessageEntitySpoiler, MessageEntityCustomEmoji,
+        MessageEntityTextUrl, MessageEntityMentionName
+    )
+    
+    for ent in entities:
+        start = ent.offset
+        end = ent.offset + ent.length
+        
+        if isinstance(ent, MessageEntityBold):
+            events[start].append((1, '<b>'))
+            events[end].append((-1, '</b>'))
+        elif isinstance(ent, MessageEntityItalic):
+            events[start].append((1, '<i>'))
+            events[end].append((-1, '</i>'))
+        elif isinstance(ent, MessageEntityCode):
+            events[start].append((1, '<code>'))
+            events[end].append((-1, '</code>'))
+        elif isinstance(ent, MessageEntityPre):
+            events[start].append((1, '<pre>'))
+            events[end].append((-1, '</pre>'))
+        elif isinstance(ent, MessageEntityStrike):
+            events[start].append((1, '<s>'))
+            events[end].append((-1, '</s>'))
+        elif isinstance(ent, MessageEntityUnderline):
+            events[start].append((1, '<u>'))
+            events[end].append((-1, '</u>'))
+        elif isinstance(ent, MessageEntityBlockquote):
+            events[start].append((1, '<blockquote>'))
+            events[end].append((-1, '</blockquote>'))
+        elif isinstance(ent, MessageEntitySpoiler):
+            events[start].append((1, '<tg-spoiler>'))
+            events[end].append((-1, '</tg-spoiler>'))
+        elif isinstance(ent, MessageEntityCustomEmoji):
+            events[start].append((1, f'<tg-emoji id="{ent.document_id}">'))
+            events[end].append((-1, '</tg-emoji>'))
+        elif isinstance(ent, MessageEntityTextUrl):
+            events[start].append((1, f'<a href="{ent.url}">'))
+            events[end].append((-1, '</a>'))
+        elif isinstance(ent, MessageEntityMentionName):
+            events[start].append((1, f'<a href="tg://user?id={ent.user_id}">'))
+            events[end].append((-1, '</a>'))
 
+    result = []
+    for i in range(len(s_units) + 1):
+        if i in events:
+            # ပိတ်မည့် Tag များကို ဖွင့်မည့် Tag များထက် အရင်လာစေရန် စီခြင်း
+            sorted_evts = sorted(events[i], key=lambda x: x[0])
+            for tag_type, tag_str in sorted_evts:
+                result.append(tag_str)
+        if i < len(s_units):
+            result.append(escape_html(s_units[i]))
+            
+    return "".join(result)
+
+# ==========================================
+# 🎨 SMART PIL CIRCULAR PROFILE OVERLAY ENGINE
+# ==========================================
+
+def overlay_profile_picture(bg_bytes, pfp_bytes):
+    """နောက်ခံပုံပေါ်တွင် User Profile ကို အဝိုင်းပုံစံ ထင်ထင်ရှားရှား အလယ်ဗဟို၌ ထည့်ပေးသည့် Function"""
+    try:
+        bg_img = Image.open(io.BytesIO(bg_bytes)).convert("RGBA")
+        pfp_img = Image.open(io.BytesIO(pfp_bytes)).convert("RGBA")
+        
+        bg_w, bg_h = bg_img.size
+        # ပုံရဲ့ Size ပေါ်မူတည်ပြီး Profile Size ကို အချိုးကျတွက်ချက်ခြင်း
+        pfp_size = min(bg_w, bg_h) // 4
+        if pfp_size < 120: pfp_size = 120
+        if pfp_size > 320: pfp_size = 320
+        
+        pfp_img = pfp_img.resize((pfp_size, pfp_size), Image.Resampling.LANCZOS)
+        
+        # Profile ကို အဝိုင်းဖြစ်အောင် Mask ပြုလုပ်ခြင်း
+        mask = Image.new("L", (pfp_size, pfp_size), 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, pfp_size, pfp_size), fill=255)
+        
+        circular_pfp = Image.new("RGBA", (pfp_size, pfp_size))
+        circular_pfp.paste(pfp_img, (0, 0), mask=mask)
+        
+        # ထင်ထင်ရှားရှားဖြစ်အောင် အဖြူရောင် Border လိုင်းလှလှလေး ထည့်ခြင်း
+        draw_border = ImageDraw.Draw(circular_pfp)
+        draw_border.ellipse((0, 0, pfp_size - 1, pfp_size - 1), outline="white", width=5)
+        
+        # အလယ်ဗဟိုတည်နေရာ ရှာဖွေခြင်း
+        pos_x = bg_w // 2 - pfp_size // 2
+        pos_y = bg_h // 2 - pfp_size // 2
+        
+        bg_img.paste(circular_pfp, (pos_x, pos_y), circular_pfp)
+        
+        output = io.BytesIO()
+        bg_img.convert("RGB").save(output, format="JPEG", quality=95)
+        return output.getvalue()
+    except Exception as e:
+        print(f"Pillow Overlay Error: {e}")
+        return bg_bytes
+
+# ==========================================
+# ⚙️ GLOBAL WELCOME TEMPLATE SETTER COMMANDS
+# ==========================================
+
+@bot1.on(events.NewMessage(pattern=r'^/setwc$'))
+async def set_welcome_caption(event):
+    """Owner မှ Welcome စာသားအား Premium Emoji ပါဝင်မှုမပျက် သိမ်းဆည်းရန်"""
+    if event.sender_id != OWNER_ID: return
+        
+    if not event.is_reply:
+        return await event.reply("⚠️ <b>Welcome စာသားကို Reply ပြန်ပြီး <code>/setwc</code> ဟု ရိုက်ပေးပါ Boss!</b>", parse_mode='html')
+        
+    reply_msg = await event.get_reply_message()
+    if not reply_msg or (not reply_msg.text and not reply_msg.message):
+        return await event.reply("❌ <b>Reply ပြန်ထားတဲ့ မက်ဆေ့ခ်ျထဲမှာ စာသားမတွေ့ပါဘူး Bro!</b>", parse_mode='html')
+        
+    # Unicode / Premium Emoji Formatting အပြည့်အစုံကို HTML သို့ ပြောင်းလဲခြင်း
+    html_template = message_to_html(reply_msg.message, reply_msg.entities)
+    
+    await groups_config_col.update_one(
+        {"chat_id": "global_welcome_settings"},
+        {"$set": {"welcome_html_template": html_template}},
+        upsert=True
+    )
+    
+    success_text = (
+        f"✅ <b>{f('GLOBAL WELCOME TEXT CONFIG MATRIX LOCKED')}</b>\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
+        f"{html_template}\n\n"
+        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
+        f"<blockquote>Premium Emojis နှင့် စာသားပုံစံအားလုံးကို Group အားလုံးအတွက် သိမ်းဆည်းပြီးပါပြီ Boss! 🔥</blockquote>"
+    )
+    await event.reply(success_text, parse_mode='html')
+
+
+@bot1.on(events.NewMessage(pattern=r'^/setbg$'))
+async def set_welcome_background(event):
+    """Owner မှ Welcome နောက်ခံ ပုံ (သို့) ဗီဒီယိုအား Group အားလုံးအတွက် သတ်မှတ်ရန်"""
+    if event.sender_id != OWNER_ID: return
+        
+    if not event.is_reply:
+        return await event.reply("⚠️ <b>Welcome နောက်ခံဖြစ်စေချင်တဲ့ ပုံ (သို့) ဗီဒီယိုကို Reply ပြန်ပြီး <code>/setbg</code> ဟု ရိုက်ပေးပါ Boss!</b>", parse_mode='html')
+        
+    reply_msg = await event.get_reply_message()
+    if not reply_msg or not (reply_msg.photo or reply_msg.video or reply_msg.document):
+        return await event.reply("❌ <b>ထည့်သွင်းရန် သင့်လျော်သော ပုံ (သို့) ဗီဒီယို ရှာမတွေ့ပါ Bro!</b>", parse_mode='html')
+        
+    media_type = "photo" if reply_msg.photo else "video"
+    if reply_msg.document and reply_msg.document.mime_type.startswith("video"):
+        media_type = "video"
+        
+    try:
+        # Control Group ထဲသို့ သိမ်းဆည်းရန်အတွက် လုံခြုံစွာ Forward လုပ်ခြင်း
+        forwarded_msg = await send_safe_message(bot1, SPECIFIC_CONTROL_GROUP, "", file=reply_msg.media)
+        storage_msg_id = forwarded_msg.id
+        
+        await groups_config_col.update_one(
+            {"chat_id": "global_welcome_settings"},
+            {"$set": {
+                "bg_storage_msg_id": storage_msg_id,
+                "bg_media_type": media_type
+            }},
+            upsert=True
+        )
+        
+        await event.reply(f"✅ <b>Global Welcome Background Injected!</b>\n\n📸 Type: <code>{media_type.upper()}</code>\n📦 Storage Msg ID: <code>{storage_msg_id}</code>\n<blockquote>နောက်ခံ Media အား စနစ်ထဲ ထည့်သွင်းပြီးပါပြီ။ ဂရုအားလုံးတွင် သုံးပါမည် Boss! ⚡</blockquote>", parse_mode='html')
+    except Exception as e:
+        await event.reply(f"❌ <b>Background Save Fault:</b> <code>{escape_html(str(e))}</code>", parse_mode='html')
+
+
+# ==========================================
+# 🌌 GLOBAL USER JOIN ACTION DISPATCHER
+# ==========================================
+@bot1.on(events.ChatAction)
+async def global_welcome_handler(event):
+    """လူသစ်ဝင်လာပါက Auto Account ဖွင့်ပေးပြီး Premium Welcome Media ပေးပို့သည့် စနစ်"""
+    if not (event.user_joined or event.user_added):
+        return
+        
+    try:
+        chat = await event.get_chat()
+        group_name = getattr(chat, 'title', 'This Active Realm')
+        group_id = event.chat_id
+    except:
+        return
+        
+    user_id = event.user_id
+    try:
+        user_entity = await event.get_user()
+        first_name = getattr(user_entity, 'first_name', '') or ''
+        last_name = getattr(user_entity, 'last_name', '') or ''
+        fullname = f"{first_name} {last_name}".strip()
+        if not fullname:
+            fullname = getattr(user_entity, 'username', '') or f"Agent {user_id}"
+    except:
+        fullname = f"Agent {user_id}"
+        
+    # Joined Date အား လှပသပ်ရပ်စွာ ထုတ်ယူခြင်း
+    joined_date = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+    
+    # လူသစ်အား Catcher Game စနစ်ထဲ အလိုအလျောက် အကောင့်ဖွင့်ပေးခြင်း
+    mention_html = f"<a href='tg://user?id={user_id}'><b>{escape_html(fullname)}</b></a>"
+    await ensure_user_registered(user_id, mention_html)
+    
+    # ဒေတာဘေ့စ်မှ Welcome Settings ကို ထုတ်ယူခြင်း
+    settings = await groups_config_col.find_one({"chat_id": "global_welcome_settings"})
+    if not settings:
+        return # သတ်မှတ်မထားပါက ဘာမှဝင်မလုပ်ပါ
+        
+    welcome_html_template = settings.get("welcome_html_template")
+    bg_storage_msg_id = settings.get("bg_storage_msg_id")
+    bg_media_type = settings.get("bg_media_type", "photo")
+    
+    if not welcome_html_template:
+        return # စာသားမရှိလျှင် မပို့ပါ
+        
+    # Placeholder များကို ပုံစံမပျက် ဘေးကင်းစွာ အစားထိုးခြင်း
+    caption_text = welcome_html_template.replace("{fullname}", mention_html).replace("{groupname}", escape_html(group_name)).replace("{joined_date}", escape_html(joined_date))
+    
+    if bg_storage_msg_id:
+        try:
+            # Control Group ထဲက မူရင်း မီဒီယာဖိုင်ကို ဆွဲထုတ်ခြင်း
+            storage_msg = await bot1.get_messages(SPECIFIC_CONTROL_GROUP, ids=bg_storage_msg_id)
+            if storage_msg and storage_msg.media:
+                if bg_media_type == "photo":
+                    # ပုံဖြစ်ပါက ဒေါင်းလုဒ်ဆွဲပြီး Profile Overlay Engine သို့ ပို့မည်
+                    bg_stream = io.BytesIO()
+                    await bot1.download_media(storage_msg.media, file=bg_stream)
+                    
+                    pfp_stream = io.BytesIO()
+                    has_pfp = await bot1.download_profile_photo(user_id, file=pfp_stream)
+                    
+                    if has_pfp:
+                        processed_image = overlay_profile_picture(bg_stream.getvalue(), pfp_stream.getvalue())
+                    else:
+                        processed_image = bg_stream.getvalue()
+                        
+                    await send_safe_file(bot1, group_id, file=io.BytesIO(processed_image), caption=caption_text, parse_mode='html')
+                    return
+                else:
+                    # ဗီဒီယိုဖြစ်ပါက မူရင်း Quality အတိုင်း တိုက်ရိုက် Spawn ပို့ပေးမည်
+                    await send_safe_file(bot1, group_id, file=storage_msg.media, caption=caption_text, parse_mode='html')
+                    return
+        except Exception as e:
+            print(f"Welcome Media Forwarding Error: {e}")
+            
+    # အကယ်၍ မီဒီယာပို့ရာတွင် Error တက်ပါက Safe စာသားသက်သက်ဖြင့်သာ လှမ်းအော်ပေးမည်
+    await send_safe_message(bot1, group_id, caption_text, parse_mode='html')
+   
 # ==========================================
 # 📥 1. PERMANENT DATABASE ADDER
 # ==========================================
