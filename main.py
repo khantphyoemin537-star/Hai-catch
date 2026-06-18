@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timedelta
 from flask import Flask
 from PIL import Image, ImageDraw
+from html.parser import HTMLParser
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from html import escape as escape_html
@@ -287,7 +288,7 @@ def message_to_html(text, entities):
             events[end].append((-1, '</tg-spoiler>'))
         elif isinstance(ent, MessageEntityCustomEmoji):
             events[start].append((1, f'<tg-emoji id="{ent.document_id}">'))
-            events[end].append((-1, '</tg-emoji>'))
+            events[end].append((-1, '</emoji>'))
         elif isinstance(ent, MessageEntityTextUrl):
             events[start].append((1, f'<a href="{ent.url}">'))
             events[end].append((-1, '</a>'))
@@ -307,9 +308,82 @@ def message_to_html(text, entities):
             
     return "".join(result)
 
+
+# ==========================================
+# 🛠️ CUSTOM HTML TO TELETHON ENTITIES PARSER (FIX FOR PREMIUM EMOJIS)
+# ==========================================
+from html.parser import HTMLParser
+
+class CustomHTMLToTelegramParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.clean_text = ""
+        self.entities = []
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        # UTF-16 Code Units ပေါ်မူတည်ပြီး Offset ကို တိကျစွာ တွက်ချက်ခြင်း (Emoji များ မလွဲစေရန်)
+        current_offset = len(self.clean_text.encode('utf-16-le')) // 2
+        self.stack.append((tag, current_offset, dict(attrs)))
+
+    def handle_endtag(self, tag):
+        current_offset = len(self.clean_text.encode('utf-16-le')) // 2
+        for i in range(len(self.stack) - 1, -1, -1):
+            start_tag, start_offset, attr_dict = self.stack[i]
+            if start_tag == tag:
+                length = current_offset - start_offset
+                self.stack.pop(i)
+                
+                ent = None
+                if tag in ('b', 'strong'):
+                    ent = types.MessageEntityBold(start_offset, length)
+                elif tag in ('i', 'em'):
+                    ent = types.MessageEntityItalic(start_offset, length)
+                elif tag == 'code':
+                    ent = types.MessageEntityCode(start_offset, length)
+                elif tag == 'pre':
+                    ent = types.MessageEntityPre(start_offset, length, language='')
+                elif tag in ('s', 'strike'):
+                    ent = types.MessageEntityStrike(start_offset, length)
+                elif tag == 'u':
+                    ent = types.MessageEntityUnderline(start_offset, length)
+                elif tag == 'blockquote':
+                    ent = types.MessageEntityBlockquote(start_offset, length)
+                elif tag == 'tg-spoiler':
+                    ent = types.MessageEntitySpoiler(start_offset, length)
+                elif tag == 'tg-emoji':
+                    doc_id = int(attr_dict.get('id', 0))
+                    ent = types.MessageEntityCustomEmoji(start_offset, length, document_id=doc_id)
+                elif tag == 'a':
+                    url = attr_dict.get('href', '')
+                    if url.startswith('tg://user?id='):
+                        try:
+                            u_id = int(url.split('=')[-1])
+                            ent = types.MessageEntityMentionName(start_offset, length, user_id=u_id)
+                        except ValueError:
+                            ent = types.MessageEntityTextUrl(start_offset, length, url=url)
+                    else:
+                        ent = types.MessageEntityTextUrl(start_offset, length, url=url)
+                
+                if ent:
+                    self.entities.append(ent)
+                break
+
+    def handle_data(self, data):
+        self.clean_text += data
+
+def parse_html_to_telethon(html_string):
+    """HTML စာသားမှ Telethon Entities နှင့် Plain Text သို့ ပြောင်းလဲပေးသည့် Function"""
+    parser = CustomHTMLToTelegramParser()
+    parser.feed(html_string)
+    return parser.clean_text, parser.entities
+
+
 # ==========================================
 # 🎨 SMART PIL CIRCULAR PROFILE OVERLAY ENGINE
 # ==========================================
+from PIL import Image, ImageDraw
+import io
 
 def overlay_profile_picture(bg_bytes, pfp_bytes):
     """နောက်ခံပုံပေါ်တွင် User Profile ကို အဝိုင်းပုံစံ ထင်ထင်ရှားရှား အလယ်ဗဟို၌ ထည့်ပေးသည့် Function"""
@@ -380,9 +454,12 @@ async def set_welcome_caption(event):
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
         f"{html_template}\n\n"
         f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-        f"<blockquote>Premium Emojis နှင့် စာသားပုံစံအားလုံးကို Group အားလုံးအတွက် သိမ်းဆည်းပြီးပါပြီ Boss! 🔥</blockquote>"
+        f"<blockquote>Premium Emojis နှင့် สာသားပုံစံအားလုံးကို Group အားလုံးအတွက် သိမ်းဆည်းပြီးပါပြီ Boss! 🔥</blockquote>"
     )
-    await event.reply(success_text, parse_mode='html')
+    
+    # 🌟 FIX: parse_mode='html' ကို မသုံးဘဲ Custom Parser ဖြင့် Text နှင့် Entities ခွဲထုတ်ပြီး ပို့ဆောင်ခြင်း
+    clean_text, entities = parse_html_to_telethon(success_text)
+    await event.reply(clean_text, entities=entities)
 
 
 @bot1.on(events.NewMessage(pattern=r'^/setbg$'))
@@ -467,7 +544,10 @@ async def global_welcome_handler(event):
         return # စာသားမရှိလျှင် မပို့ပါ
         
     # Placeholder များကို ပုံစံမပျက် ဘေးကင်းစွာ အစားထိုးခြင်း
-    caption_text = welcome_html_template.replace("{fullname}", mention_html).replace("{groupname}", escape_html(group_name)).replace("{joined_date}", escape_html(joined_date))
+    caption_html = welcome_html_template.replace("{fullname}", mention_html).replace("{groupname}", escape_html(group_name)).replace("{joined_date}", escape_html(joined_date))
+    
+    # 🌟 FIX: HTML Template အား Telethon သုံးနိုင်ရန် Text နှင့် Entities အဖြစ် ကြိုတင်ခွဲထုတ်ခြင်း
+    clean_caption, entities = parse_html_to_telethon(caption_html)
     
     if bg_storage_msg_id:
         try:
@@ -487,18 +567,21 @@ async def global_welcome_handler(event):
                     else:
                         processed_image = bg_stream.getvalue()
                         
-                    await send_safe_file(bot1, group_id, file=io.BytesIO(processed_image), caption=caption_text, parse_mode='html')
+                    # 🌟 FIX: parse_mode='html' ကိုဖြုတ်ပြီး ပြောင်းလဲထားသော entities ကို တိုက်ရိုက်ထည့်သွင်းပေးပို့ခြင်း
+                    await send_safe_file(bot1, group_id, file=io.BytesIO(processed_image), caption=clean_caption, entities=entities)
                     return
                 else:
                     # ဗီဒီယိုဖြစ်ပါက မူရင်း Quality အတိုင်း တိုက်ရိုက် Spawn ပို့ပေးမည်
-                    await send_safe_file(bot1, group_id, file=storage_msg.media, caption=caption_text, parse_mode='html')
+                    # 🌟 FIX: parse_mode='html' ကိုဖြုတ်ပြီး ပြောင်းလဲထားသော entities ကို တိုက်ရိုက်ထည့်သွင်းပေးပို့ခြင်း
+                    await send_safe_file(bot1, group_id, file=storage_msg.media, caption=clean_caption, entities=entities)
                     return
         except Exception as e:
             print(f"Welcome Media Forwarding Error: {e}")
             
     # အကယ်၍ မီဒီယာပို့ရာတွင် Error တက်ပါက Safe စာသားသက်သက်ဖြင့်သာ လှမ်းအော်ပေးမည်
-    await send_safe_message(bot1, group_id, caption_text, parse_mode='html')
-   
+    # 🌟 FIX: parse_mode='html' ကိုဖြုတ်ပြီး ပြောင်းလဲထားသော entities ကို တိုက်ရိုက်ထည့်သွင်းပေးပို့ခြင်း
+    await send_safe_message(bot1, group_id, clean_caption, entities=entities)
+
 # ==========================================
 # 📥 1. PERMANENT DATABASE ADDER
 # ==========================================
