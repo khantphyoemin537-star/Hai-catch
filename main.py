@@ -5,7 +5,6 @@ import random
 import os
 import threading
 import re
-from PIL import Image, ImageDraw
 import time
 from datetime import datetime, timedelta
 from flask import Flask
