@@ -785,8 +785,8 @@ async def global_welcome_handler(event):
 @bot1.on(events.NewMessage(pattern=r'^/myprofile$'))
 async def send_web_app_link(event):
     user_id = event.sender_id
-    # သင့် Web App ရဲ့ Host URL ပြောင်းလဲပေးရန် (ဥပမာ- Render သုံးရင် thour-app.onrender.com)
-    web_app_url = f"https://hai-catch.onrender.com/{user_id}"
+    # Flask မှာ /webapp/ နဲ့ Route ဆောက်ထားလို့ လမ်းကြောင်းမှန်အောင် /webapp/ ထည့်ပေးထားပါတယ်
+    web_app_url = f"https://hai-catch.onrender.com/webapp/{user_id}"
     
     markup = [
         [Button.web_app("🌐 Open Web Dashboard", web_app_url)]
@@ -796,9 +796,11 @@ async def send_web_app_link(event):
         "🛸 <b>Sovereign Matrix Web Grid Online!</b>\n\n"
         "သင့်ရဲ့ စာရင်းဇယားတွေ၊ ပိုင်ဆိုင်ထားတဲ့ Harem Character တွေနဲ့ "
         "Marketplace ကို ပိုမိုလန်းဆန်းတဲ့ Premium UI နဲ့ ကြည့်ရှုဖို့ အောက်ကခလုတ်ကို နှိပ်လိုက်ပါ Boss! 🔥",
-        file=None, # ပုံပါတွဲပို့ချင်ရင် ထည့်လို့ရပါတယ်
+        file=None, 
         buttons=markup,
-        parse_mode='html'  
+        parse_mode='html'
+    ) # <-- ဒီကွင်းပိတ်လေး ကျန်ခဲ့လို့ အမှားတက်သွားတာပါ
+
 # ==========================================
 # 📥 1. PERMANENT DATABASE ADDER
 # ==========================================
