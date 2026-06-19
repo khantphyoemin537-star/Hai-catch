@@ -781,26 +781,6 @@ async def global_welcome_handler(event):
     # 🌟 FIX: parse_mode='html' ကိုဖြုတ်ပြီး ပြောင်းလဲထားသော entities ကို တိုက်ရိုက်ထည့်သွင်းပေးပို့ခြင်း
     await send_safe_message(bot1, group_id, clean_caption, entities=entities)
 
-
-@bot1.on(events.NewMessage(pattern=r'^/myprofile$'))
-async def send_web_app_link(event):
-    user_id = event.sender_id
-    # Flask မှာ /webapp/ နဲ့ Route ဆောက်ထားလို့ လမ်းကြောင်းမှန်အောင် /webapp/ ထည့်ပေးထားပါတယ်
-    web_app_url = f"https://hai-catch.onrender.com/webapp/{user_id}"
-    
-    markup = [
-        [Button.web_app("🌐 Open Web Dashboard", web_app_url)]
-    ]
-    
-    await event.reply(
-        "🛸 <b>Sovereign Matrix Web Grid Online!</b>\n\n"
-        "သင့်ရဲ့ စာရင်းဇယားတွေ၊ ပိုင်ဆိုင်ထားတဲ့ Harem Character တွေနဲ့ "
-        "Marketplace ကို ပိုမိုလန်းဆန်းတဲ့ Premium UI နဲ့ ကြည့်ရှုဖို့ အောက်ကခလုတ်ကို နှိပ်လိုက်ပါ Boss! 🔥",
-        file=None, 
-        buttons=markup,
-        parse_mode='html'
-    ) # <-- ဒီကွင်းပိတ်လေး ကျန်ခဲ့လို့ အမှားတက်သွားတာပါ
-
 # ==========================================
 # 📥 1. PERMANENT DATABASE ADDER
 # ==========================================
@@ -921,7 +901,29 @@ async def take_mmk_telethon(event):
         await event.reply(f"💰 Boss ရဲ့ ဒေတာဘေ့စ်အကောင့်ထဲကို <code>{amount:,} MMK</code> အောင်မြင်စွာ ထည့်သွင်းပေးလိုက်ပါပြီ။", parse_mode='html')
     except Exception as e:
         await event.reply(f"❌ <b>Database Error:</b> <code>{e}</code>", parse_mode='html')
-
+# ⚠️ ဒီကုဒ်ကို main.py ရဲ့ အခြား @bot1.on command တွေရှိတဲ့ နေရာမှာပဲ သွားထည့်ပါ (အောက်ဆုံးမှာ သွားမထားပါနဲ့)
+@bot1.on(events.NewMessage(pattern=r'^/myprofile(?:\s|$|@)'))
+async def send_web_app_link(event):
+    try:
+        user_id = event.sender_id
+        # Web App URL လမ်းကြောင်း
+        web_app_url = f"https://hai-catch.onrender.com/webapp/{user_id}"
+        
+        markup = [
+            [Button.web_app("🌐 Open Web Dashboard", web_app_url)]
+        ]
+        
+        await event.reply(
+            "🛸 <b>Sovereign Matrix Web Grid Online!</b>\n\n"
+            "သင့်ရဲ့ စာရင်းဇယားတွေ၊ ပိုင်ဆိုင်ထားတဲ့ Harem Character တွေနဲ့ "
+            "Marketplace ကို ပိုမိုလန်းဆန်းတဲ့ Premium UI နဲ့ ကြည့်ရှုဖို့ အောက်ကခလုတ်ကို နှိပ်လိုက်ပါ Boss! 🔥",
+            buttons=markup,
+            parse_mode='html'
+        )
+    except Exception as e:
+        # တကယ်လို့ အမှားတစ်ခုခုရှိရင် Render Log ထဲမှာ လှမ်းကြည့်လို့ရအောင် PRINT ထုတ်ခိုင်းထားပါတယ်
+        print(f"❌ Error in /myprofile command: {e}")
+     
 @bot1.on(events.NewMessage(pattern=r'^/giveall\s+(\d+)'))
 async def give_all_players_mmk(event):
     if event.sender_id != OWNER_ID: return
