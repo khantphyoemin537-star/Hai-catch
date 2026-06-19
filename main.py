@@ -786,7 +786,7 @@ async def global_welcome_handler(event):
 async def send_web_app_link(event):
     user_id = event.sender_id
     # သင့် Web App ရဲ့ Host URL ပြောင်းလဲပေးရန် (ဥပမာ- Render သုံးရင် thour-app.onrender.com)
-    web_app_url = f"https://your-domain-name.com/webapp/{user_id}"
+    web_app_url = f"https://hai-catch.onrender.com/{user_id}"
     
     markup = [
         [Button.web_app("🌐 Open Web Dashboard", web_app_url)]
