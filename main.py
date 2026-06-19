@@ -6,7 +6,7 @@ import os
 import threading
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from flask import Flask, jsonify, render_template_string
 from PIL import Image, ImageDraw
 from html.parser import HTMLParser
