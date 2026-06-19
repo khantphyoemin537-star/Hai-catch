@@ -7,7 +7,7 @@ import threading
 import re
 import time
 from datetime import datetime, timedelta
-from flask import Flask
+from flask import Flask, jsonify, render_template_string
 from PIL import Image, ImageDraw
 from html.parser import HTMLParser
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -118,6 +118,145 @@ async def group_reminder_scheduler():
                     
         await asyncio.sleep(60) # ၁ မိနစ်တစ်ခါ စစ်ဆေးပေးမယ်
 
+HTML_UI_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovereign Matrix Grid - Web Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: radial-gradient(circle at center, #111827, #030712);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #f3f4f6;
+        }
+        .neon-border {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+            border: 1px solid rgba(168, 85, 247, 0.6);
+        }
+        .neon-text-cyan { text-shadow: 0 0 8px rgba(6, 182, 212, 0.8); }
+        .neon-text-pink { text-shadow: 0 0 8px rgba(236, 72, 153, 0.8); }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="p-4 max-w-md mx-auto pb-24">
+
+    <div class="glass-panel neon-border rounded-2xl p-5 mb-6 text-center relative overflow-hidden">
+        <div class="absolute top-0 right-0 bg-purple-600 text-xs px-3 py-1 rounded-bl-xl font-bold tracking-wider animate-pulse">MATRIX ONLINE</div>
+        <div class="w-20 h-20 bg-gradient-to-tr from-purple-500 to-cyan-400 rounded-full mx-auto flex items-center justify-center text-3xl font-bold border-2 border-white shadow-lg mb-3">
+            <i class="fa-solid fa-user-shield text-slate-900"></i>
+        </div>
+        <h1 id="userName" class="text-xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Loading Agent...</h1>
+        <p class="text-xs text-gray-400 mt-1">ID: {{ user_id }}</p>
+        
+        <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-800">
+            <div class="p-2 bg-slate-900/60 rounded-xl">
+                <span class="text-xs text-gray-400 block mb-1"><i class="fa-solid fa-wallet text-yellow-500 mr-1"></i> Balance</span>
+                <span id="userWallet" class="text-lg font-black text-yellow-400 neon-text-pink">0 MMK</span>
+            </div>
+            <div class="p-2 bg-slate-900/60 rounded-xl">
+                <span class="text-xs text-gray-400 block mb-1"><i class="fa-solid fa-dragon text-cyan-400 mr-1"></i> Total Caught</span>
+                <span id="userCaught" class="text-lg font-black text-cyan-400 neon-text-cyan">0 Pcs</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex space-x-2 mb-4 bg-slate-900/80 p-1 rounded-xl border border-gray-800">
+        <button onclick="switchTab('harem')" id="btn-harem" class="flex-1 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all"><i class="fa-solid fa-box-open mr-1"></i> My Harem</button>
+        <button onclick="switchTab('market')" id="btn-market" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all"><i class="fa-solid fa-shop mr-1"></i> Marketplace</button>
+    </div>
+
+    <div id="haremView" class="space-y-3">
+        <h3 class="text-sm font-semibold tracking-wide text-gray-400 mb-2"><i class="fa-solid fa-star text-purple-400 mr-1"></i> MY CHARACTER COLLECTION</h3>
+        <div id="haremList" class="grid grid-cols-1 gap-3">
+            </div>
+    </div>
+
+    <div id="marketView" class="space-y-3 hidden">
+        <h3 class="text-sm font-semibold tracking-wide text-gray-400 mb-2"><i class="fa-solid fa-fire text-red-500 mr-1"></i> LIVE MARKET AUCTION</h3>
+        <div id="marketList" class="grid grid-cols-1 gap-3">
+            </div>
+    </div>
+
+    <script>
+        const userId = "{{ user_id }}";
+
+        async function loadProfile() {
+            try {
+                let res = await fetch(`/api/user/${userId}`);
+                let data = await res.json();
+                if(data.status === 'success') {
+                    document.getElementById('userName').innerHTML = data.fullname;
+                    document.getElementById('userWallet').innerText = data.wallet_balance.toLocaleString() + " MMK";
+                    document.getElementById('userCaught').innerText = data.total_caught + " Pcs";
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadHarem() {
+            try {
+                let res = await fetch(`/api/harem/${userId}`);
+                let data = await res.json();
+                let listContainer = document.getElementById('haremList');
+                listContainer.innerHTML = "";
+                
+                if(data.status === 'success' && data.harem.length > 0) {
+                    data.harem.forEach(char => {
+                        listContainer.innerHTML += `
+                            <div class="glass-panel p-4 rounded-xl flex justify-between items-center relative border-l-4 border-cyan-500">
+                                <div>
+                                    <h4 class="font-bold text-md text-white">${char.name}</h4>
+                                    <span class="text-xs bg-slate-800 text-cyan-400 px-2 py-0.5 rounded font-mono mt-1 inline-block">${char.char_id}</span>
+                                    <span class="text-xs text-gray-400 ml-2">${char.category}</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="block text-xs font-bold text-purple-400">${char.rarity}</span>
+                                    <span class="text-xs text-yellow-500 font-semibold">${char.value.toLocaleString()} MMK</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    listContainer.innerHTML = `<p class="text-center text-sm text-gray-500 py-6">သင့် Harem ထဲမှာ ဘာဇာတ်ကောင်မှ မရှိသေးပါဘူး 👾</p>`;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function switchTab(tab) {
+            if(tab === 'harem') {
+                document.getElementById('haremView').classList.remove('hidden');
+                document.getElementById('marketView').classList.add('hidden');
+                document.getElementById('btn-harem').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all";
+                document.getElementById('btn-market').className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all";
+            } else {
+                document.getElementById('haremView').classList.add('hidden');
+                document.getElementById('marketView').classList.remove('hidden');
+                document.getElementById('btn-market').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all";
+                document.getElementById('btn-harem').className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all";
+                loadMarketplace();
+            }
+        }
+
+        async function loadMarketplace() {
+            // Marketplace data loading logic here...
+            document.getElementById('marketList').innerHTML = `<p class="text-center text-sm text-gray-500 py-6">Marketplace Features များကို Web App ပေါ်တွင် မကြာမီ ရနိုင်ပါတော့မည်... 🚀</p>`;
+        }
+
+        // Initial Load
+        loadProfile();
+        loadHarem();
+    </script>
+</body>
+</html>
+"""
+
 # ==========================================
 # 🛡️ FLOOD WAIT PROTECTION ENGINE
 # ==========================================
@@ -158,13 +297,74 @@ def normalize_name(text):
 # 🌐 FLASK KEEP-ALIVE SYSTEM
 # ==========================================
 app = Flask('')
-@app.route('/')
-def home(): return "Sovereign Core Hub Status: Running Perfect! 🔥"
+
+# 🌐 1. HOME & WEB APP UI MAIN PAGE
+@app.route('/webapp/<int:user_id>')
+def web_app_dashboard(user_id):
+    # HTML UI ကို အောက်က အဆင့် (၂) က Code နဲ့ တွဲသုံးပါမယ်။
+    return render_template_string(HTML_UI_TEMPLATE, user_id=user_id)
+
+# 📊 2. API: USER PROFILE & STATS
+@app.route('/api/user/<int:user_id>')
+async def get_user_profile(user_id):
+    try:
+        user_data = await users_catcher_col.find_one({"user_id": user_id})
+        if not user_data:
+            return jsonify({"status": "error", "message": "User not found"}), 404
+            
+        return jsonify({
+            "status": "success",
+            "fullname": user_data.get("fullname", f"Agent {user_id}"),
+            "wallet_balance": user_data.get("wallet_balance", 0),
+            "total_caught": user_data.get("total_caught", 0),
+            "harem_count": len(user_data.get("harem", []))
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# 🦊 3. API: USER HAREM (COLLECTION)
+@app.route('/api/harem/<int:user_id>')
+async def get_user_harem(user_id):
+    try:
+        user_data = await users_catcher_col.find_one({"user_id": user_id})
+        if not user_data:
+            return jsonify({"status": "error", "message": "User not found"}), 404
+            
+        harem_ids = user_data.get("harem", [])
+        # Harem ထဲက Character Details တွေကို Database ထဲကနေ ဆွဲထုတ်မယ်
+        characters = []
+        async for char in characters_base_col.find({"char_id": {"$in": harem_ids}}):
+            characters.append({
+                "char_id": char.get("char_id"),
+                "name": char.get("name"),
+                "category": char.get("category"),
+                "rarity": char.get("rarity"),
+                "value": char.get("currency_value", 0)
+            })
+        return jsonify({"status": "success", "harem": characters})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# 🏪 4. API: MARKETPLACE DATA
+@app.route('/api/marketplace')
+async def get_web_marketplace():
+    try:
+        items = []
+        async for item in marketplace_col.find({}):
+            items.append({
+                "market_id": str(item.get("_id")),
+                "char_id": item.get("char_id"),
+                "price": item.get("price"),
+                "seller_id": item.get("seller_id")
+            })
+        return jsonify({"status": "success", "marketplace": items})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 def run_flask(): 
     port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
-
+    # Threading safe ဖြစ်အောင် async loop နဲ့ အလုပ်လုပ်ဖို့ reloader ပိတ်ထားပါ
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
 
 # ==========================================
@@ -581,6 +781,24 @@ async def global_welcome_handler(event):
     # 🌟 FIX: parse_mode='html' ကိုဖြုတ်ပြီး ပြောင်းလဲထားသော entities ကို တိုက်ရိုက်ထည့်သွင်းပေးပို့ခြင်း
     await send_safe_message(bot1, group_id, clean_caption, entities=entities)
 
+
+@bot1.on(events.NewMessage(pattern=r'^/myprofile$'))
+async def send_web_app_link(event):
+    user_id = event.sender_id
+    # သင့် Web App ရဲ့ Host URL ပြောင်းလဲပေးရန် (ဥပမာ- Render သုံးရင် thour-app.onrender.com)
+    web_app_url = f"https://your-domain-name.com/webapp/{user_id}"
+    
+    markup = [
+        [Button.web_app("🌐 Open Web Dashboard", web_app_url)]
+    ]
+    
+    await event.reply(
+        "🛸 <b>Sovereign Matrix Web Grid Online!</b>\n\n"
+        "သင့်ရဲ့ စာရင်းဇယားတွေ၊ ပိုင်ဆိုင်ထားတဲ့ Harem Character တွေနဲ့ "
+        "Marketplace ကို ပိုမိုလန်းဆန်းတဲ့ Premium UI နဲ့ ကြည့်ရှုဖို့ အောက်ကခလုတ်ကို နှိပ်လိုက်ပါ Boss! 🔥",
+        file=None, # ပုံပါတွဲပို့ချင်ရင် ထည့်လို့ရပါတယ်
+        buttons=markup,
+        parse_mode='html'  
 # ==========================================
 # 📥 1. PERMANENT DATABASE ADDER
 # ==========================================
