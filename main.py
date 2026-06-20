@@ -6,6 +6,8 @@ import os
 import threading
 import re
 import time
+import urllib.request
+import json
 from datetime import datetime, timedelta, date
 from flask import Flask, jsonify, render_template_string
 from PIL import Image, ImageDraw
@@ -46,77 +48,6 @@ async def ensure_user_registered(user_id, fullname):
         },
         upsert=True
     )
-
-async def group_reminder_scheduler():
-    while True:
-        now = time.time()
-        today_str = datetime.date.today().isoformat()
-        
-        # active_group collection ထဲက ဂရုအားလုံးကို ဆွဲထုတ်မယ်
-        async for group_doc in db["active_group"].find({}):
-            
-            # 🔥 ဉာဏ်များတဲ့အကွက်: ဖြစ်နိုင်သမျှ Key နာမည် ၃ မျိုးလုံးကို Auto စစ်ယူမယ်
-            group_id = group_doc.get("group_id") or group_doc.get("chat_id") or group_doc.get("_id")
-            
-            # အကယ်၍ ရလာတဲ့ ID က စာသား (String) ဖြစ်နေရင် Telethon သုံးရလွယ်အောင် Integer ပြောင်းမယ်
-            if not group_id: 
-                continue
-            try:
-                group_id = int(group_id)
-            except ValueError:
-                continue # ID မဟုတ်ရင် ကျော်မယ်
-            
-            # Reminder ဒေတာဘေ့စ်မှာ စစ်ဆေးမယ်
-            group_data = await reminders_col.find_one({"group_id": group_id})
-            
-            if not group_data:
-                group_data = {
-                    "group_id": group_id,
-                    "last_reminder_time": 0,
-                    "is_done": False,
-                    "done_date": today_str
-                }
-                await reminders_col.insert_one(group_data)
-            
-            # ရက်အသစ်ကူးရင် Reset လုပ်မယ်
-            if group_data.get("done_date") != today_str:
-                await reminders_col.update_one(
-                    {"group_id": group_id},
-                    {"$set": {"is_done": False, "done_date": today_str, "last_reminder_time": 0}}
-                )
-                group_data["is_done"] = False
-                group_data["last_reminder_time"] = 0
-            
-            # ၃ နာရီပြည့်ရင် သတိပေးစာ ပို့မယ်
-            if not group_data["is_done"] and (now - group_data["last_reminder_time"] >= 10800):
-                try:
-                    admins_mentions = []
-                    async for admin in bot1.iter_participants(group_id, filter=ChannelParticipantsAdmins):
-                        if not admin.bot:
-                            admins_mentions.append(f"<a href='tg://user?id={admin.id}'>@{admin.first_name}</a>")
-                    
-                    mention_text = " ".join(admins_mentions)
-                    
-                    reminder_text = (
-                        f"🦖 <b>ATTENTION ADMINS!</b> {mention_text}\n\n"
-                        f"🎮 နေ့စဉ် အပျင်းပြေဆော့ဖို့ ပိုက်ဆံစုနိုင်ဖို့ <b>/game</b> ဆော့ရမယ့်အချိန် ရောက်ပါပြီဗျာ။\n"
-                        f"🎁 <b>/daily</b> ရိုက်ပြီး နေ့စဉ်ဆုလာဘ်စုကြေးတွေကိုလည်း မမေ့မလျော့ ဝင်ယူသွားကြပါဦး Boss တို့!\n\n"
-                        f"📌 <b>နားလည်ပြီဆိုရင်</b> အောက်ပါကွန်မန်းကို နှိပ်ပေးပါဦး-\n"
-                        f"🤔 <code>/done</code> ကိုနှိပ် (ဒါဆိုရင် ဒီနေ့အတွက် သတိပေးစာ ထပ်မလာတော့ပါဘူး)\n\n"
-                        f"⚠️ <i>မနှိပ်မချင်း ၃ နာရီတစ်ခါ လာပြောနေမှာ အဟိ။ 😉</i>"
-                    )
-                    
-                    await bot1.send_message(group_id, reminder_text, parse_mode='html')
-                    
-                    await reminders_col.update_one(
-                        {"group_id": group_id},
-                        {"$set": {"last_reminder_time": now}}
-                    )
-                    
-                except Exception as e:
-                    print(f"Error sending reminder to {group_id}: {e}")
-                    
-        await asyncio.sleep(60) # ၁ မိနစ်တစ်ခါ စစ်ဆေးပေးမယ်
 
 # ==========================================
 # 🛡️ FLOOD WAIT PROTECTION ENGINE
@@ -309,10 +240,8 @@ async def set_welcome_caption(event):
     
     success_text = (
         f"✅ <b>{f('GLOBAL WELCOME TEXT CONFIG MATRIX LOCKED')}</b>\n"
-        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n\n"
         f"{html_template}\n\n"
-        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-        f"<blockquote>Premium Emojis နှင့် สာသားပုံစံအားလုံးကို Group အားလုံးအတွက် သိမ်းဆည်းပြီးပါပြီ Boss! 🔥</blockquote>"
+        f"<🔥</blockquote>"
     )
     
     # 🌟 FIX: parse_mode='html' ကို မသုံးဘဲ Custom Parser ဖြင့် Text နှင့် Entities ခွဲထုတ်ပြီး ပို့ဆောင်ခြင်း
@@ -673,7 +602,7 @@ async def view_boss(event):
         f"[{hp_bar}] ({int((active_boss['hp']/active_boss['max_hp'])*100)}%)\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"⚔️ <b>တိုက်ခိုက်ရန်:</b> <code>/attack [BOD_ID]</code>\n"
-        f"<i>(ဥပမာ- /attack CH12345)</i>"
+        f"<i>(ဥပမာ- /attack BOD1234)</i>"
     )
     await send_safe_message(bot1, event.chat_id, msg, parse_mode='html')
 
@@ -1358,7 +1287,7 @@ async def profile_handler(event):
     profile_text = (
         f"🌌 <b>{f('BOD AGENT DOSSIER')}</b>\n"
         f"👤 <b>{f('Agent Identity')}:</b> {mention}\n"
-        f"🔩 <b>{f('User Core ID')}:</b> <code>{user_id}</code>\n"
+        f"🦦 <b>{f('User Core ID')}:</b> <code>{user_id}</code>\n"
         f"🪙 <b>{f('Asset Liquid Capital')}:</b> <code>{balance} MMK</code>\n"
         f"🎒 <b>{f('Gross Captured Units')}:</b> <code>{total_caught} Units</code>\n"
         f"🛒 <b>{f('On Marketplace')}:</b> <code>{market_count} Cards</code>\n"
@@ -1672,7 +1601,7 @@ async def slot_game_handler(event):
         status_text = f"🤤 <b>{f('TRIPLE COMBINATION')}. (+{win_amount:,} MMK)</b>"
     elif max_count == 2:
         win_amount = int(bet * .5)
-        status_text = f"🤣 <b>{f('SINGLE PAIR MATCH')}. Stake Saved! (+{win_amount:,} MMK)</b>"
+        status_text = f"🤣 <b>{f('SINGLE PAIR MATCH')}. လောင်းကြေးတစ်ဝက်ပြန်ရမယ်။ (+{win_amount:,} MMK)</b>"
     else: status_text = f"🤪 <b>ကံမကောင်းသေးပါဘူး Bro! လောင်းကြေး ရှုံးနိမ့်သွားပါပြီ။ (-{bet:,} MMK)</b>"
         
     if win_amount > 0: await users_catcher_col.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": win_amount}})
@@ -2216,7 +2145,7 @@ async def daily_reward(event):
     now = time.time()
     
     user_data = await users_catcher_col.find_one({"user_id": user_id})
-    if not user_data: return await event.reply("❌ အရင်ဆုံး ကတ်တစ်ခုခု ဖမ်းယူပြီးမှ သုံးပါဗျာ။")
+    if not user_data: return await event.reply("❌ အရင်ဆုံး Charater Cardတစ်ခု /catchထားရမယ်🦦 ")
     
     last_daily = user_data.get("last_daily", 0)
     streak = user_data.get("daily_streak", 0)
@@ -2245,19 +2174,201 @@ async def daily_reward(event):
     )
     await event.reply(f"🎁 <b>DAILY REWARD CLAIMED!</b>\n🪙<code>{reward} MMK</code> ရရှိပါပြီ။\n🔥 Current Streak: <code>{new_streak} ဟိုလီးရှစ်</code>")
 
+# ====================================================================================
+# 📡 REAL-TIME WEATHER ENGINE (MYANMAR & THAI MULTI-LANGUAGE)
+# ====================================================================================
+def fetch_live_weather(city_id="Yangon"):
+    """wttr.in API မှတစ်ဆင့် Real-time ရာသီဥတုကို ဆွဲယူပြီး မြန်မာနှင့် ထိုင်း နှစ်ဘာသာဖြင့် ထုတ်ပေးသည့်စနစ်"""
+    try:
+        search_query = city_id.replace("_", " ")
+        url = f"https://wttr.in/{search_query}?format=j1"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        
+        with urllib.request.urlopen(req, timeout=7) as response:
+            data = json.loads(response.read().decode())
+            current = data['current_condition'][0]
+            temp_c = current['temp_C']
+            weather_desc = current['weatherDesc'][0]['value'].strip()
+            humidity = current['humidity']
+            wind_speed = current['windspeedKmph']
+            
+            # 📝 Weather Condition Translation (English -> Myanmar & Thai)
+            translations = {
+                "Sunny": {"mm": "☀️ နေသာနေသည်", "th": "☀️ แดดจัด"},
+                "Clear": {"mm": "🌌 ကောင်းကင်ကြည်လင်နေသည်", "th": "🌌 ท้องฟ้าแจ่มใส"},
+                "Partly cloudy": {"mm": "⛅ တိမ်အသင့်အတင့် ရှိသည်", "th": "⛅ มีเมฆบางส่วน"},
+                "Cloudy": {"mm": "☁️ တိမ်ထူနေသည်", "th": "☁️ มีเมฆมาก"},
+                "Overcast": "☁️ ครึ้มฟ้าครึ้มฝน",
+                "Overcast": {"mm": "☁️ တိမ်တိုက်များ ဖုံးလွှမ်းနေသည်", "th": "☁️ ครึ้มฟ้าครึ้มฝน"},
+                "Mist": {"mm": "🌫️ မြူဆိုင်းနေသည်", "th": "🌫️ มีหมอกบาง"},
+                "Fog": {"mm": "🌫️ မြူထူနေသည်", "th": "🌫️ มีหมอกหนา"},
+                "Patchy rain nearby": {"mm": "🌦️ နေရာကွက်ကျား မိုးရွာနေသည်", "th": "🌦️ มีฝนตกเป็นแห่งๆ"},
+                "Light rain": {"mm": "🌧️ မိုးဖွဲဖွဲ ရွာနေသည်", "th": "🌧️ ฝนตกปรอยๆ"},
+                "Moderate rain": {"mm": "🌧️ မိုးအသင့်အတင့် ရွာနေသည်", "th": "🌧️ ฝนตกปานกลาง"},
+                "Heavy rain": {"mm": "⛈️ မိုးသည်းထန်စွာ ရွာနေသည်", "th": "⛈️ ฝนตกหนัก"},
+                "Thunderstorm": {"mm": "⛈️ မိုးသက်မုန်တိုင်း ဖြစ်နေသည်", "th": "⛈️ พายุฝนฟ้าคะนอง"},
+                "Torrential rain shower": {"mm": "⛈️ မိုးသည်းထန်စွာ ရွာသွန်းနေသည်", "th": "⛈️ ฝนตกหนักมาก"}
+            }
+            
+            translated_res = translations.get(weather_desc, {"mm": f"✨ {weather_desc}", "th": f"✨ {weather_desc}"})
+            return {
+                "success": True,
+                "temp": temp_c,
+                "mm_desc": translated_res["mm"],
+                "th_desc": translated_res["th"],
+                "humidity": humidity,
+                "wind": wind_speed,
+                "city": search_query.upper()
+            }
+    except Exception as e:
+        print(f"Weather Fetch Error: {e}")
+        return {"success": False}
 
+# ====================================================================================
+# 🤖 TELETHON WEATHER BOT ROUTER HANDLERS
+# ====================================================================================
 
-# ==========================================
-# ⚡ EXECUTOR INITIALIZER
-# ==========================================
-if __name__ == '__main__':
+# ၁။ /weather ရိုက်လျှင် ပထမဆုံး နိုင်ငံရွေးချယ်ခိုင်းသည့် ခလုတ်ပြခြင်း
+@bot1.on(events.NewMessage(pattern=r"(?i)^/weather$"))
+async def weather_cmd_handler(event):
+    buttons = [
+        [Button.inline("မြန်မာ 🇲🇲", b"w_country_mm"), Button.inline("ထိုင်း 🇹🇭", b"w_country_th")]
+    ]
+    
+    await event.reply(
+        "🌍 <b>နိုင်ငံရွေးချယ်ရန် / เลือกประเทศ</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "လက်ရှိအချိန် ရာသီဥတုအခြေအနေကို စစ်ဆေးရန် နိုင်ငံကို ရွေးချယ်ပေးပါရန်။\n"
+        "กรุณาเลือกประเทศเพื่อตรวจสอบสภาพอากาศแบบเรียลไทม์",
+        parse_mode='html',
+        buttons=buttons
+    )
+
+# ၂။ Inline Buttons များ၏ အဆင့်ဆင့် လုပ်ဆောင်ချက်များကို ထိန်းချုပ်ပေးမည့် Callback Engine
+@bot1.on(events.CallbackQuery(pattern=r"^w_(.+)$"))
+async def weather_callback_engine(event):
+    action = event.pattern_match.group(1).decode('utf-8') if isinstance(event.pattern_match.group(1), bytes) else event.pattern_match.group(1)
+    
+    # 🏠 Main Menu (နိုင်ငံပြန်ရွေးရန်)
+    if action == "main_menu":
+        buttons = [
+            [Button.inline("မြန်မာ 🇲🇲", b"w_country_mm"), Button.inline("ထိုင်း 🇹🇭", b"w_country_th")]
+        ]
+        await event.edit(
+            "🌍 <b>နိုင်ငံရွေးချယ်ရန် / เลือกประเทศ</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "လက်ရှိအချိန် ရာသီဥတုအခြေအနေကို စစ်ဆေးရန် နိုင်ငံကို ရွေးချယ်ပေးပါရန်။\n"
+            "กรุณาเลือกประเทศเพื่อตรวจสอบสภาพอากาศแบบเรียลไทม์",
+            parse_mode='html',
+            buttons=buttons
+        )
+        return
+
+    # 🇲🇲 မြန်မာနိုင်ငံရှိ တိုင်းနှင့်ပြည်နယ်များ Menu
+    elif action == "country_mm":
+        buttons = [
+            [Button.inline("ရန်ကုန် (ย่างกุ้ง)", b"w_city_Yangon"), Button.inline("မန္တလေး (มัณฑะเลย์)", b"w_city_Mandalay")],
+            [Button.inline("နေပြည်တော် (เนปยีดอ)", b"w_city_Naypyidaw"), Button.inline("တောင်ကြီး (ตองยี)", b"w_city_Taunggyi")],
+            [Button.inline("ပဲခူး (พะโค)", b"w_city_Bago"), Button.inline("မော်လမြိုင် (เมาะลำเลิง)", b"w_city_Mawlamyine")],
+            [Button.inline("⬅️ နောက်သို့ / กลับ", b"w_main_menu")]
+        ]
+        await event.edit(
+            "🇲🇲 <b>မြန်မာနိုင်ငံ: ဒေသရွေးချယ်ရန် / เลือกภูมิภาค</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "ရာသီဥတုအစီရင်ခံစာကို ကြည့်ရှုရန် တိုင်းဒေသကြီး သို့မဟုတ် ပြည်နယ်ကို ရွေးချယ်ပါ။\n"
+            "เลือกประเภอหรือรัฐเพื่อดูรายงานสภาพอากาศ",
+            parse_mode='html',
+            buttons=buttons
+        )
+        return
+
+    # 🇹🇭 ထိုင်းနိုင်ငံရှိ ခရိုင်/ပြည်နယ်များ Menu
+    elif action == "country_th":
+        buttons = [
+            [Button.inline("ဘန်ကောက် (กรุงเทพฯ)", b"w_city_Bangkok"), Button.inline("ချင်းမိုင် (เชียงใหม่)", b"w_city_Chiang_Mai")],
+            [Button.inline("ဖူးခက် (ภูเก็ต)", b"w_city_Phuket"), Button.inline("ပတ္ตရား (พัทยา)", b"w_city_Pattaya")],
+            [Button.inline("ဟတ်ယိုင် (หาดใหญ่)", b"w_city_Hat_Yai"), Button.inline("ခွန်ကန် (ขอนแก่น)", b"w_city_Khon_Kaen")],
+            [Button.inline("⬅️ နောက်သို့ / กลับ", b"w_main_menu")]
+        ]
+        await event.edit(
+            "🇹🇭 <b>ထိုင်းနိုင်ငံ: ခရိုင်ရွေးချယ်ရန် / เลือกจังหวัด</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "ရာသီဥတုအစီရင်ခံစာကို ကြည့်ရှုရန် ခရိုင် သို့မဟုတ် ပြည်နယ်ကို ရွေးချယ်ပါ။\n"
+            "เลือกจังหวัดเพื่อดูรายงานสภาพอากาศ",
+            parse_mode='html',
+            buttons=buttons
+        )
+        return
+
+    # 🏙️ မြို့တစ်မြို့ချင်းစီ၏ ရာသီဥတုကို ဂြိုဟ်တုမှ တိုက်ရိုက်ဆွဲယူပြသခြင်း အပိုင်း
+    elif action.startswith("city_"):
+        city_name = action.replace("city_", "")
+        
+        # Loading ပြပေးခြင်း
+        await event.edit(f"📡 <i>{city_name} အတွက် အချက်အလက်များကို ရယူနေပါသည်... / กำลังดึงข้อมูล...</i>", parse_mode='html')
+        
+        # Async Loop မပိတ်အောင် Executor သုံးပြီး မောင်းနှင်ခြင်း
+        loop = asyncio.get_event_loop()
+        w_data = await loop.run_in_executor(None, fetch_live_weather, city_name)
+        
+        mm_cities = ["Yangon", "Mandalay", "Naypyidaw", "Taunggyi", "Bago", "Mawlamyine"]
+        back_target = b"w_country_mm" if city_name in mm_cities else b"w_country_th"
+        
+        control_buttons = [
+            [Button.inline("🔄 အချက်အလက်အသစ်ယူရန် / อัปเดต", f"w_city_{city_name}".encode('utf-8'))],
+            [Button.inline("⬅️ နောက်သို့ / ย้อนกลับ", back_target)]
+        ]
+        
+        if w_data["success"]:
+            response_text = (
+                f"🌍 <b>LIVE WEATHER REPORT / รายงานสภาพอากาศ</b>\n"
+                f"📍 <b>တည်နေရာ / สถานที่:</b> <code>{w_data['city']}</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"🌡️ <b>အပူချိန် / อุณหภูมิ:</b> <code>{w_data['temp']}°C</code>\n"
+                f"💧 <b>စိုထိုင်းဆ / ความชื้น:</b> <code>{w_data['humidity']}%</code>\n"
+                f"💨 <b>လေတိုက်နှုန်း / ความเร็วลม:</b> <code>{w_data['wind']} Km/h</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"🇲🇲 <b>မိုးလေဝသ (MM):</b> <code>{w_data['mm_desc']}</code>\n"
+                f"🇹🇭 <b>สภาพอากาศ (TH):</b> <code>{w_data['th_desc']}</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"📡 <i>Synced perfectly via Satellite Grid.</i>"
+            )
+        else:
+            response_text = f"❌ <b>ERROR:</b> Unable to retrieve data for {city_name}. / ไม่สามารถดึงข้อมูลได้"
+
+        await event.edit(response_text, parse_mode='html', buttons=control_buttons)
+
+# ====================================================================================
+# 🚀 BULLETPROOF AUTO-RECONNECT ENGINE & SYSTEM LAUNCHER
+# ====================================================================================
+async def start_sovereign_system():
+    # 🌐 Flask Web Server ကို Background Thread မှာ အရင်တင်ခြင်း
     threading.Thread(target=run_flask, daemon=True).start()
-    print("🛰️ Sovereign Matrix Grid Online...")
-    
-    bot1.start(bot_token=MAIN_BOT_TOKEN)
-    
-    # နောက်ကွယ်မှာ Auto-Clean လုပ်မယ့် Task ကိုပါ Event Loop ထဲ ထည့်မောင်းနှင်ခြင်း
-    bot1.loop.create_task(ghost_spawn_cleaner())
-    
-    bot1.run_until_disconnected()
+    print("🌐 Keep-Alive Flask Server initialized on Port 10000 successfully!")
 
+    # 🔄 Telegram Bot Connection စိတ်ချရအောင် ပတ်မည့် Infinite Loop
+    while True:
+        try:
+            print("🚀 Telethon Bot Client စတင်ချိတ်ဆက်နေပါသည်...")
+            await bot1.start(bot_token=MAIN_BOT_TOKEN)
+            
+            me = await bot1.get_me()
+            print(f"✅ Bot Telegram နှင့် အောင်မြင်စွာ ချိတ်ဆက်မိပါပြီ- @{me.username}")
+            
+            # ⏰ Background Cronjobs များကို Loop ထဲမှာ စနစ်တကျ စတင်ခြင်း
+            asyncio.create_task(group_reminder_scheduler())
+            print("📅 Background Reminder Scheduler Grid: LOCKED & ACTIVE! ✔️")
+            
+            # Bot ကို လိုင်းမပြတ်တမ်း အမြဲစောင့်ကြည့်ခိုင်းခြင်း
+            await bot1.run_until_disconnected()
+            
+        except Exception as system_fault:
+            print(f"⚠️ Bot Network ပြုတ်ခြင်း သို့မဟုတ် Error တက်သွားခြင်း: {system_fault}")
+            print("⏳ စက္ကန့် ၃၀ အကြာတွင် စနစ်ကို Auto-Restart ပြန်လည်ချိတ်ဆက်ပါမည်...")
+            await asyncio.sleep(30) # စက္ကန့် ၃၀ စောင့်ပြီး အပေါ်က loop အတိုင်း ပြန်စပတ်မယ်
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(start_sovereign_system())
+    except KeyboardInterrupt:
+        print("Bot Engine Stopped Manually.")
