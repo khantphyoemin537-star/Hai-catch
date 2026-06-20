@@ -158,36 +158,13 @@ def normalize_name(text):
 # 🌐 FLASK KEEP-ALIVE SYSTEM
 # ==========================================
 app = Flask('')
-
-# 🌐 1. HOME & WEB APP UI MAIN PAGE
-@app.route('/webapp/<int:user_id>')
-def web_app_dashboard(user_id):
-    # HTML UI ကို အောက်က အဆင့် (၂) က Code နဲ့ တွဲသုံးပါမယ်။
-    return render_template_string(HTML_UI_TEMPLATE, user_id=user_id)
-
-# 📊 2. API: USER PROFILE & STATS
-@app.route('/api/user/<int:user_id>')
-async def get_user_profile(user_id):
-    try:
-        user_data = await users_catcher_col.find_one({"user_id": user_id})
-        if not user_data:
-            return jsonify({"status": "error", "message": "User not found"}), 404
-            
-        return jsonify({
-            "status": "success",
-            "fullname": user_data.get("fullname", f"Agent {user_id}"),
-            "wallet_balance": user_data.get("wallet_balance", 0),
-            "total_caught": user_data.get("total_caught", 0),
-            "harem_count": len(user_data.get("harem", []))
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+@app.route('/')
+def home(): return "BoD Sovereign System Plus Engine is Active!"
 
 def run_flask(): 
     port = int(os.environ.get('PORT', 10000))
-    # Threading safe ဖြစ်အောင် async loop နဲ့ အလုပ်လုပ်ဖို့ reloader ပိတ်ထားပါ
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    app.run(host='0.0.0.0', port=port)
+
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
 
 # ==========================================
