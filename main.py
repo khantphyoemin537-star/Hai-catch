@@ -118,145 +118,6 @@ async def group_reminder_scheduler():
                     
         await asyncio.sleep(60) # ၁ မိနစ်တစ်ခါ စစ်ဆေးပေးမယ်
 
-HTML_UI_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sovereign Matrix Grid - Web Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body {
-            background: radial-gradient(circle at center, #111827, #030712);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #f3f4f6;
-        }
-        .neon-border {
-            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
-            border: 1px solid rgba(168, 85, 247, 0.6);
-        }
-        .neon-text-cyan { text-shadow: 0 0 8px rgba(6, 182, 212, 0.8); }
-        .neon-text-pink { text-shadow: 0 0 8px rgba(236, 72, 153, 0.8); }
-        .glass-panel {
-            background: rgba(17, 24, 39, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-    </style>
-</head>
-<body class="p-4 max-w-md mx-auto pb-24">
-
-    <div class="glass-panel neon-border rounded-2xl p-5 mb-6 text-center relative overflow-hidden">
-        <div class="absolute top-0 right-0 bg-purple-600 text-xs px-3 py-1 rounded-bl-xl font-bold tracking-wider animate-pulse">MATRIX ONLINE</div>
-        <div class="w-20 h-20 bg-gradient-to-tr from-purple-500 to-cyan-400 rounded-full mx-auto flex items-center justify-center text-3xl font-bold border-2 border-white shadow-lg mb-3">
-            <i class="fa-solid fa-user-shield text-slate-900"></i>
-        </div>
-        <h1 id="userName" class="text-xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">Loading Agent...</h1>
-        <p class="text-xs text-gray-400 mt-1">ID: {{ user_id }}</p>
-        
-        <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-800">
-            <div class="p-2 bg-slate-900/60 rounded-xl">
-                <span class="text-xs text-gray-400 block mb-1"><i class="fa-solid fa-wallet text-yellow-500 mr-1"></i> Balance</span>
-                <span id="userWallet" class="text-lg font-black text-yellow-400 neon-text-pink">0 MMK</span>
-            </div>
-            <div class="p-2 bg-slate-900/60 rounded-xl">
-                <span class="text-xs text-gray-400 block mb-1"><i class="fa-solid fa-dragon text-cyan-400 mr-1"></i> Total Caught</span>
-                <span id="userCaught" class="text-lg font-black text-cyan-400 neon-text-cyan">0 Pcs</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="flex space-x-2 mb-4 bg-slate-900/80 p-1 rounded-xl border border-gray-800">
-        <button onclick="switchTab('harem')" id="btn-harem" class="flex-1 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all"><i class="fa-solid fa-box-open mr-1"></i> My Harem</button>
-        <button onclick="switchTab('market')" id="btn-market" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all"><i class="fa-solid fa-shop mr-1"></i> Marketplace</button>
-    </div>
-
-    <div id="haremView" class="space-y-3">
-        <h3 class="text-sm font-semibold tracking-wide text-gray-400 mb-2"><i class="fa-solid fa-star text-purple-400 mr-1"></i> MY CHARACTER COLLECTION</h3>
-        <div id="haremList" class="grid grid-cols-1 gap-3">
-            </div>
-    </div>
-
-    <div id="marketView" class="space-y-3 hidden">
-        <h3 class="text-sm font-semibold tracking-wide text-gray-400 mb-2"><i class="fa-solid fa-fire text-red-500 mr-1"></i> LIVE MARKET AUCTION</h3>
-        <div id="marketList" class="grid grid-cols-1 gap-3">
-            </div>
-    </div>
-
-    <script>
-        const userId = "{{ user_id }}";
-
-        async function loadProfile() {
-            try {
-                let res = await fetch(`/api/user/${userId}`);
-                let data = await res.json();
-                if(data.status === 'success') {
-                    document.getElementById('userName').innerHTML = data.fullname;
-                    document.getElementById('userWallet').innerText = data.wallet_balance.toLocaleString() + " MMK";
-                    document.getElementById('userCaught').innerText = data.total_caught + " Pcs";
-                }
-            } catch(e) { console.error(e); }
-        }
-
-        async function loadHarem() {
-            try {
-                let res = await fetch(`/api/harem/${userId}`);
-                let data = await res.json();
-                let listContainer = document.getElementById('haremList');
-                listContainer.innerHTML = "";
-                
-                if(data.status === 'success' && data.harem.length > 0) {
-                    data.harem.forEach(char => {
-                        listContainer.innerHTML += `
-                            <div class="glass-panel p-4 rounded-xl flex justify-between items-center relative border-l-4 border-cyan-500">
-                                <div>
-                                    <h4 class="font-bold text-md text-white">${char.name}</h4>
-                                    <span class="text-xs bg-slate-800 text-cyan-400 px-2 py-0.5 rounded font-mono mt-1 inline-block">${char.char_id}</span>
-                                    <span class="text-xs text-gray-400 ml-2">${char.category}</span>
-                                </div>
-                                <div class="text-right">
-                                    <span class="block text-xs font-bold text-purple-400">${char.rarity}</span>
-                                    <span class="text-xs text-yellow-500 font-semibold">${char.value.toLocaleString()} MMK</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-                } else {
-                    listContainer.innerHTML = `<p class="text-center text-sm text-gray-500 py-6">သင့် Harem ထဲမှာ ဘာဇာတ်ကောင်မှ မရှိသေးပါဘူး 👾</p>`;
-                }
-            } catch(e) { console.error(e); }
-        }
-
-        function switchTab(tab) {
-            if(tab === 'harem') {
-                document.getElementById('haremView').classList.remove('hidden');
-                document.getElementById('marketView').classList.add('hidden');
-                document.getElementById('btn-harem').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all";
-                document.getElementById('btn-market').className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all";
-            } else {
-                document.getElementById('haremView').classList.add('hidden');
-                document.getElementById('marketView').classList.remove('hidden');
-                document.getElementById('btn-market').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all";
-                document.getElementById('btn-harem').className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all";
-                loadMarketplace();
-            }
-        }
-
-        async function loadMarketplace() {
-            // Marketplace data loading logic here...
-            document.getElementById('marketList').innerHTML = `<p class="text-center text-sm text-gray-500 py-6">Marketplace Features များကို Web App ပေါ်တွင် မကြာမီ ရနိုင်ပါတော့မည်... 🚀</p>`;
-        }
-
-        // Initial Load
-        loadProfile();
-        loadHarem();
-    </script>
-</body>
-</html>
-"""
-
 # ==========================================
 # 🛡️ FLOOD WAIT PROTECTION ENGINE
 # ==========================================
@@ -322,44 +183,6 @@ async def get_user_profile(user_id):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# 🦊 3. API: USER HAREM (COLLECTION)
-@app.route('/api/harem/<int:user_id>')
-async def get_user_harem(user_id):
-    try:
-        user_data = await users_catcher_col.find_one({"user_id": user_id})
-        if not user_data:
-            return jsonify({"status": "error", "message": "User not found"}), 404
-            
-        harem_ids = user_data.get("harem", [])
-        # Harem ထဲက Character Details တွေကို Database ထဲကနေ ဆွဲထုတ်မယ်
-        characters = []
-        async for char in characters_base_col.find({"char_id": {"$in": harem_ids}}):
-            characters.append({
-                "char_id": char.get("char_id"),
-                "name": char.get("name"),
-                "category": char.get("category"),
-                "rarity": char.get("rarity"),
-                "value": char.get("currency_value", 0)
-            })
-        return jsonify({"status": "success", "harem": characters})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# 🏪 4. API: MARKETPLACE DATA
-@app.route('/api/marketplace')
-async def get_web_marketplace():
-    try:
-        items = []
-        async for item in marketplace_col.find({}):
-            items.append({
-                "market_id": str(item.get("_id")),
-                "char_id": item.get("char_id"),
-                "price": item.get("price"),
-                "seller_id": item.get("seller_id")
-            })
-        return jsonify({"status": "success", "marketplace": items})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 def run_flask(): 
     port = int(os.environ.get('PORT', 10000))
@@ -436,147 +259,6 @@ async def get_html_mention(event, user_id=None):
     except:
         fullname = f"Agent {user_id}"
     return f"<a href='tg://user?id={user_id}'><b>{escape_html(fullname)}</b></a>"
-# ==========================================
-# ⚙️ PREMIUM EMOJI TO HTML CONVERTER ENGINE
-# ==========================================
-def message_to_html(text, entities):
-    """Premium Emoji များနှင့် Formatting များကို HTML အဖြစ် လုံးဝပုံစံမပျက် ပြောင်းလဲပေးသည့် Function"""
-    if not text:
-        return ""
-    if not entities:
-        return escape_html(text)
-        
-    encoded_text = text.encode('utf-16-le')
-    s_units = [encoded_text[i:i+2].decode('utf-16-le') for i in range(0, len(encoded_text), 2)]
-    
-    events = defaultdict(list)
-    from telethon.tl.types import (
-        MessageEntityBold, MessageEntityItalic, MessageEntityCode, 
-        MessageEntityPre, MessageEntityStrike, MessageEntityUnderline, 
-        MessageEntityBlockquote, MessageEntitySpoiler, MessageEntityCustomEmoji,
-        MessageEntityTextUrl, MessageEntityMentionName
-    )
-    
-    for ent in entities:
-        start = ent.offset
-        end = ent.offset + ent.length
-        
-        if isinstance(ent, MessageEntityBold):
-            events[start].append((1, '<b>'))
-            events[end].append((-1, '</b>'))
-        elif isinstance(ent, MessageEntityItalic):
-            events[start].append((1, '<i>'))
-            events[end].append((-1, '</i>'))
-        elif isinstance(ent, MessageEntityCode):
-            events[start].append((1, '<code>'))
-            events[end].append((-1, '</code>'))
-        elif isinstance(ent, MessageEntityPre):
-            events[start].append((1, '<pre>'))
-            events[end].append((-1, '</pre>'))
-        elif isinstance(ent, MessageEntityStrike):
-            events[start].append((1, '<s>'))
-            events[end].append((-1, '</s>'))
-        elif isinstance(ent, MessageEntityUnderline):
-            events[start].append((1, '<u>'))
-            events[end].append((-1, '</u>'))
-        elif isinstance(ent, MessageEntityBlockquote):
-            events[start].append((1, '<blockquote>'))
-            events[end].append((-1, '</blockquote>'))
-        elif isinstance(ent, MessageEntitySpoiler):
-            events[start].append((1, '<tg-spoiler>'))
-            events[end].append((-1, '</tg-spoiler>'))
-        elif isinstance(ent, MessageEntityCustomEmoji):
-            events[start].append((1, f'<tg-emoji id="{ent.document_id}">'))
-            events[end].append((-1, '</emoji>'))
-        elif isinstance(ent, MessageEntityTextUrl):
-            events[start].append((1, f'<a href="{ent.url}">'))
-            events[end].append((-1, '</a>'))
-        elif isinstance(ent, MessageEntityMentionName):
-            events[start].append((1, f'<a href="tg://user?id={ent.user_id}">'))
-            events[end].append((-1, '</a>'))
-
-    result = []
-    for i in range(len(s_units) + 1):
-        if i in events:
-            # ပိတ်မည့် Tag များကို ဖွင့်မည့် Tag များထက် အရင်လာစေရန် စီခြင်း
-            sorted_evts = sorted(events[i], key=lambda x: x[0])
-            for tag_type, tag_str in sorted_evts:
-                result.append(tag_str)
-        if i < len(s_units):
-            result.append(escape_html(s_units[i]))
-            
-    return "".join(result)
-
-
-# ==========================================
-# 🛠️ CUSTOM HTML TO TELETHON ENTITIES PARSER (FIX FOR PREMIUM EMOJIS)
-# ==========================================
-from html.parser import HTMLParser
-
-class CustomHTMLToTelegramParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.clean_text = ""
-        self.entities = []
-        self.stack = []
-
-    def handle_starttag(self, tag, attrs):
-        # UTF-16 Code Units ပေါ်မူတည်ပြီး Offset ကို တိကျစွာ တွက်ချက်ခြင်း (Emoji များ မလွဲစေရန်)
-        current_offset = len(self.clean_text.encode('utf-16-le')) // 2
-        self.stack.append((tag, current_offset, dict(attrs)))
-
-    def handle_endtag(self, tag):
-        current_offset = len(self.clean_text.encode('utf-16-le')) // 2
-        for i in range(len(self.stack) - 1, -1, -1):
-            start_tag, start_offset, attr_dict = self.stack[i]
-            if start_tag == tag:
-                length = current_offset - start_offset
-                self.stack.pop(i)
-                
-                ent = None
-                if tag in ('b', 'strong'):
-                    ent = types.MessageEntityBold(start_offset, length)
-                elif tag in ('i', 'em'):
-                    ent = types.MessageEntityItalic(start_offset, length)
-                elif tag == 'code':
-                    ent = types.MessageEntityCode(start_offset, length)
-                elif tag == 'pre':
-                    ent = types.MessageEntityPre(start_offset, length, language='')
-                elif tag in ('s', 'strike'):
-                    ent = types.MessageEntityStrike(start_offset, length)
-                elif tag == 'u':
-                    ent = types.MessageEntityUnderline(start_offset, length)
-                elif tag == 'blockquote':
-                    ent = types.MessageEntityBlockquote(start_offset, length)
-                elif tag == 'tg-spoiler':
-                    ent = types.MessageEntitySpoiler(start_offset, length)
-                elif tag == 'tg-emoji':
-                    doc_id = int(attr_dict.get('id', 0))
-                    ent = types.MessageEntityCustomEmoji(start_offset, length, document_id=doc_id)
-                elif tag == 'a':
-                    url = attr_dict.get('href', '')
-                    if url.startswith('tg://user?id='):
-                        try:
-                            u_id = int(url.split('=')[-1])
-                            ent = types.MessageEntityMentionName(start_offset, length, user_id=u_id)
-                        except ValueError:
-                            ent = types.MessageEntityTextUrl(start_offset, length, url=url)
-                    else:
-                        ent = types.MessageEntityTextUrl(start_offset, length, url=url)
-                
-                if ent:
-                    self.entities.append(ent)
-                break
-
-    def handle_data(self, data):
-        self.clean_text += data
-
-def parse_html_to_telethon(html_string):
-    """HTML စာသားမှ Telethon Entities နှင့် Plain Text သို့ ပြောင်းလဲပေးသည့် Function"""
-    parser = CustomHTMLToTelegramParser()
-    parser.feed(html_string)
-    return parser.clean_text, parser.entities
-
 
 # ==========================================
 # 🎨 SMART PIL CIRCULAR PROFILE OVERLAY ENGINE
@@ -901,29 +583,7 @@ async def take_mmk_telethon(event):
         await event.reply(f"💰 Boss ရဲ့ ဒေတာဘေ့စ်အကောင့်ထဲကို <code>{amount:,} MMK</code> အောင်မြင်စွာ ထည့်သွင်းပေးလိုက်ပါပြီ။", parse_mode='html')
     except Exception as e:
         await event.reply(f"❌ <b>Database Error:</b> <code>{e}</code>", parse_mode='html')
-# ⚠️ ဒီကုဒ်ကို main.py ရဲ့ အခြား @bot1.on command တွေရှိတဲ့ နေရာမှာပဲ သွားထည့်ပါ (အောက်ဆုံးမှာ သွားမထားပါနဲ့)
-@bot1.on(events.NewMessage(pattern=r'^/myprofile(?:\s|$|@)'))
-async def send_web_app_link(event):
-    try:
-        user_id = event.sender_id
-        # Web App URL လမ်းကြောင်း
-        web_app_url = f"https://hai-catch.onrender.com/webapp/{user_id}"
-        
-        markup = [
-            [Button.web_app("🌐 Open Web Dashboard", web_app_url)]
-        ]
-        
-        await event.reply(
-            "🛸 <b>Sovereign Matrix Web Grid Online!</b>\n\n"
-            "သင့်ရဲ့ စာရင်းဇယားတွေ၊ ပိုင်ဆိုင်ထားတဲ့ Harem Character တွေနဲ့ "
-            "Marketplace ကို ပိုမိုလန်းဆန်းတဲ့ Premium UI နဲ့ ကြည့်ရှုဖို့ အောက်ကခလုတ်ကို နှိပ်လိုက်ပါ Boss! 🔥",
-            buttons=markup,
-            parse_mode='html'
-        )
-    except Exception as e:
-        # တကယ်လို့ အမှားတစ်ခုခုရှိရင် Render Log ထဲမှာ လှမ်းကြည့်လို့ရအောင် PRINT ထုတ်ခိုင်းထားပါတယ်
-        print(f"❌ Error in /myprofile command: {e}")
-     
+
 @bot1.on(events.NewMessage(pattern=r'^/giveall\s+(\d+)'))
 async def give_all_players_mmk(event):
     if event.sender_id != OWNER_ID: return
@@ -1246,7 +906,7 @@ async def trigger_dynamic_spawn(chat_id):
             chat_id, 
             f"⚡ <b>{f('MYSTERY HAI DETECTED / ဘယ်သူလေး ပေါ်လာတာလဲ...')} 🫣</b>\n"
             f"<blockquote><b>{f('Hey Hunters')}!</b> သူက ဘယ်သူဖြစ်မလဲ? သဲလွန်စတွေ ကြည့်ဖို့ ဒီပိုစ့်ကို <code>/who</code> နဲ့ အမြန်ဆုံး Reply ပြန်ပြီး စစ်ဆေးလိုက်ပါ! 👀🔥</blockquote>\n"
-            f"If u still don't know how to use, Write this Cmd /helpp",
+            f"If u still don't know how to use, Reply it to /who",
             parse_mode='html',
             file=storage_msg.media
         )
@@ -1274,15 +934,15 @@ async def who_reveal_handler(event):
     chat_id = event.chat_id
     
     if chat_id not in active_group_spawns:
-        return await event.reply(f"❌ <b>{f('လက်ရှိ Spawnတဲ့ Hai မရှိသေးပါဘူး Boss!')}</b>", parse_mode='html')
+        return await event.reply(f"❌ <b>{f('လက်ရှိ Spawnတဲ့ Hai မရှိသေးပါဘူး သူငယ်ချင်း')}</b>", parse_mode='html')
         
     spawn_data = active_group_spawns[chat_id]
     if time.time() - spawn_data["spawn_time"] > 60:
         if chat_id in active_group_spawns: del active_group_spawns[chat_id]
-        return await event.reply(f"⏱️ <b>{f('TARGET GHOSTED / အချိန်ကုန်သွားလို့ ထွက်ပြေးသွားပြီ!')}😅</b>", parse_mode='html')
+        return await event.reply(f"⏱️ <b>{f('TARGET GHOSTED / နောက်မှထပ်ကောက်ပါတော့')}😅</b>", parse_mode='html')
         
     if not event.is_reply or event.reply_to_msg_id != spawn_data["spawn_msg_id"]:
-        return await event.reply(f"⚠️ <b>{f('ပစ်မှတ်လွဲနေတယ်! ပေါ်လာတဲ့ Drop ပိုစ့်ကို တိုက်ရိုက် Reply ပြန်ပေးပါ Bro!')}</b>", parse_mode='html')
+        return await event.reply(f"⚠️ <b>{f('ပစ်မှတ်လွဲနေတယ်! ပေါ်လာတဲ့ ပိုစ့်ကို တိုက်ရိုက် Reply ပြန်ပေးပါ')}</b>", parse_mode='html')
         
     reveal_text = f"🌟 {spawn_data['rarity']}\n🌐 Domain: <code>{spawn_data['category']}</code>\n\n<code>/catch {spawn_data['name']}</code>"
     await event.reply(reveal_text, parse_mode='html')
@@ -1298,7 +958,7 @@ async def catch_handler(event):
     catch_name = event.pattern_match.group(1).strip()
     
     if chat_id not in active_group_spawns:
-        return await event.reply(f"🛸 <b>{f('ဒီ Dimension မှာ ဖမ်းစရာ ဘယ်သူမှ မရှိတော့ဘူး Bro!')}</b>", parse_mode='html')
+        return await event.reply(f"🛸 <b>{f('ဒီ Dimension မှာ ဖမ်းစရာ ဘယ်သူမှ မရှိတော့ဘူး')}</b>", parse_mode='html')
         
     spawn_data = active_group_spawns[chat_id]
     if spawn_data["claimed"]: return
@@ -1362,14 +1022,12 @@ async def catch_handler(event):
             # Success Message (မူရင်းကုဒ်မှ Variable Name အမှားအား ဆရာကျကျ ပြင်ဆင်ပေးထားပါသည် 😎)
             success_msg = (
                 f"🎯 <b>{f('CAPTURED SUCCESS / ဖမ်းယူမှု အောင်မြင်ခြင်း')} ✨</b>\n"
-                f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
                 f"👤 <b>{f('Hunter')}:</b> {mention}\n"
                 f"🃏 <b>{f('Character')}:</b> <code>{escape_html(spawn_data['name'])}</code>\n"
                 f"🆔 <b>{f('Asset ID')}:</b> <code>{spawn_data['char_id']}</code>\n"
                 f"🌟 <b>{f('Rarity Class')}:</b> {spawn_data['rarity']}\n"
                 f"🪙 <b>{f('Bounty Added')}:</b> <code>+{spawn_data['value']} MMK</code>\n"
-                f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
-                f"<blockquote><b>{f('Mission Secured')}!</b> ဒီ Character ကို သင့်ရဲ့ စုဆောင်းမှု Vault ထဲသို့ အပိုင်ဆွဲထည့်လိုက်ပြီနော် Boss!🔥</blockquote>"
+                f"<blockquote><b>{f('Mission Secured')}!</b> ဒီ Character ကို သင့်ရဲ့ စုဆောင်းမှုထဲထည့်လိုက်ပြီ စစ်ဆေးရန် /hai လို့ရိုက်</blockquote>"
             )
             
             # အကယ်၍ Guild Level တက်ခဲ့ပါက ကတ်မိတဲ့စာသားအောက်မှာ တစ်ခါတည်း Message ချိတ်ပြပေးမည့်စနစ်
@@ -1482,7 +1140,7 @@ async def send_paginated_harem(client, chat_id, user_id, page=1, edit_msg_id=Non
     output_text += f"\n⚡ ━━━━━⚡\n"
     
     # 📌 [NEW FEATURE] အောက်ခြေမှာ /fav ထားဖို့ လမ်းညွှန်စာသားကို Blockquote နဲ့ ထင်းခနဲပေါ်အောင် ထည့်သွင်းခြင်း
-    output_text += f"<blockquote>💡 <code>/fav [CHxxxxx]</code> ဆိုပြီး favorite ထားနိုင်ပါတယ် ညီ!</blockquote>"
+    output_text += f"<blockquote>💡 <code>/fav [BODxxxx]</code> ဆိုပြီး favorite ထားနိုင်ပါတယ် ညီ!</blockquote>"
     
     buttons = []
     nav_buttons = []
@@ -2219,7 +1877,7 @@ async def daily_bounty_handler(event):
         rem_time = int(86400 - (current_time - last_daily))
         return await event.reply(f"⏳ {mention} <b>{f(' cooldown မပြည့်သေးပါ!')} ရယူရန် {str(timedelta(seconds=rem_time))} နာရီ လိုအပ်ပါသေးတယ်။</b>", parse_mode='html')
         
-    bonus = random.randint(3000, 70000)
+    bonus = random.randint(3000, 10000)
     await users_catcher_col.update_one(
         {"user_id": user_id},
         {"$inc": {"wallet_balance": bonus}, "$set": {"daily_cooldown": current_time, "fullname": mention}}
@@ -2425,7 +2083,7 @@ async def change_spawn_target_handler(event):
 # ==========================================
 # 📜 17. HELPMENU PANELS (/helpp & /owner)
 # ==========================================
-@bot1.on(events.NewMessage(pattern=r'^/helpp(?:@\w+)?$'))
+@bot1.on(events.NewMessage(pattern=r'^/help(?:@\w+)?$'))
 async def public_help_handler(event):
     help_text = (
         f"🌌 <b>{f('SOVEREIGN MULTI-UNIVERSE HELPMENU')}</b>\n⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡\n"
@@ -2458,7 +2116,7 @@ async def public_help_handler(event):
         f"🔘 <code>/dice [Amount]</code> — Telegram native အန်စာတုံး လှိမ့်၍ ၄၊ ၅၊ ၆ ဖြင့် နိုင်ရန် 🎲\n"
         f"🔘 <code>/hilo [Amount]</code> — နောက်ထွက်မည့်ကတ် ကြီး/ငယ် ခန့်မှန်းကစားရန် 🔮\n"
         f"🔘 <code>/gamble [Amount]</code> — Double or Nothing အမြန် လောင်းကစားရန် ⚔️\n"
-        f"⚡ ━━━━━━━━━━━━━━━━━━━━ ⚡"
+        f"⚡/game လို့ထပ်ရိုက်ကြည့်နိုင်ပါသေးတယ် ⚡"
     )
     await event.reply(help_text, parse_mode='html')
 
@@ -2610,45 +2268,7 @@ async def daily_reward(event):
     )
     await event.reply(f"🎁 <b>DAILY REWARD CLAIMED!</b>\n🪙<code>{reward} MMK</code> ရရှိပါပြီ။\n🔥 Current Streak: <code>{new_streak} ဟိုလီးရှစ်</code>")
 
-@bot1.on(events.NewMessage(pattern=r'^/done$'))
-async def done_reminder(event):
-    if event.is_private:
-        return await event.reply("❌ ဒီကွန်မန်းကို Group ထဲမှာပဲ သုံးလို့ရပါတယ်ဗျာ။")
-        
-    group_id = event.chat_id
-    user_id = event.sender_id
-    
-    # 💥 ဆရာကျတဲ့အကွက်: DB ထဲမှာ field နာမည် ဘာပဲဖြစ်ဖြစ် မိအောင် $or နဲ့ ရှာချင်တာရှာခိုင်းမယ်
-    check_group = await db["active_group"].find_one({
-        "$or": [
-            {"group_id": group_id},
-            {"chat_id": group_id},
-            {"_id": group_id},
-            {"group_id": str(group_id)}, # စာသားအနေနဲ့ ရှိနေရင်ပါ မိအောင်လို့ပါ
-            {"chat_id": str(group_id)}
-        ]
-    })
-        
-    if not check_group:
-        return # ကိုယ့်ဆီက Active Group မဟုတ်ရင် ဘာမှဝင်မလုပ်ဘူး
-        
-    try:
-        # Admin ဟုတ်၊ မဟုတ် စစ်ဆေးခြင်း
-        permissions = await bot1.get_permissions(group_id, user_id)
-        if not permissions.is_admin:
-            return await event.reply("❌ ဒီကွန်မန်းကို Group Admin များသာ နှိပ်ပိုင်ခွင့်ရှိပါတယ်")
-            
-        today_str = datetime.date.today().isoformat()
-        
-        await reminders_col.update_one(
-            {"group_id": group_id},
-            {"$set": {"is_done": True, "done_date": today_str}}
-        )
-        
-        await event.reply("<b>ဟိုက်🤓</b>\nဒီနေ့အတွက် ဒီ Group ထဲကို သတိပေးစာ ထပ်မပို့တော့ပါဝူး")
-        
-    except Exception as e:
-        print(f"Error in /done command: {e}")
+
 
 # ==========================================
 # ⚡ EXECUTOR INITIALIZER
@@ -2661,7 +2281,6 @@ if __name__ == '__main__':
     
     # နောက်ကွယ်မှာ Auto-Clean လုပ်မယ့် Task ကိုပါ Event Loop ထဲ ထည့်မောင်းနှင်ခြင်း
     bot1.loop.create_task(ghost_spawn_cleaner())
-    bot1.loop.create_task(group_reminder_scheduler())
     
     bot1.run_until_disconnected()
 
